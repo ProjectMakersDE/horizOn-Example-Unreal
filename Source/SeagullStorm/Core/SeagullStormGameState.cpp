@@ -1,5 +1,7 @@
 #include "Core/SeagullStormGameState.h"
 #include "Data/SeagullConfigCache.h"
+#include "Player/SeagullPlayerPawn.h"
+#include "Weapons/SeagullWeaponManager.h"
 #include "SeagullStorm.h"
 #include "Kismet/GameplayStatics.h"
 
@@ -147,6 +149,18 @@ TArray<FSeagullLevelUpChoice> ASeagullStormGameState::GetLevelUpChoices(int32 Co
 
 void ASeagullStormGameState::ApplyLevelUpChoice(const FSeagullLevelUpChoice& Choice)
 {
+	// Get the player pawn's weapon manager to apply actual weapon changes
+	ASeagullPlayerPawn* PlayerPawn = nullptr;
+	USeagullWeaponManager* WM = nullptr;
+	if (GetWorld())
+	{
+		PlayerPawn = Cast<ASeagullPlayerPawn>(UGameplayStatics::GetPlayerPawn(GetWorld(), 0));
+		if (PlayerPawn)
+		{
+			WM = PlayerPawn->WeaponManager;
+		}
+	}
+
 	if (Choice.Type == TEXT("weapon_new"))
 	{
 		ESeagullWeaponType WType = ESeagullWeaponType::Feather;
@@ -158,6 +172,12 @@ void ASeagullStormGameState::ApplyLevelUpChoice(const FSeagullLevelUpChoice& Cho
 		{
 			ActiveWeapons.Add(WType);
 			WeaponLevels.Add(WType, 1);
+
+			// Actually unlock the weapon on the player's weapon manager
+			if (WM)
+			{
+				WM->UnlockWeapon(WType);
+			}
 		}
 	}
 	else if (Choice.Type == TEXT("weapon_upgrade"))
@@ -167,6 +187,12 @@ void ASeagullStormGameState::ApplyLevelUpChoice(const FSeagullLevelUpChoice& Cho
 
 		int32* Level = WeaponLevels.Find(WType);
 		if (Level) (*Level)++;
+
+		// Actually upgrade the weapon on the player's weapon manager
+		if (WM)
+		{
+			WM->UpgradeWeapon(WType);
+		}
 	}
 	// stat_boost choices are handled by the pawn
 }

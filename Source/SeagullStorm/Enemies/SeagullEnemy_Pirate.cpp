@@ -28,4 +28,11 @@ void ASeagullEnemy_Pirate::MoveTowardPlayer(float DeltaTime)
 
 	FVector NewLoc = GetActorLocation() + Dir * MoveSpeed * DeltaTime;
 	SetActorLocation(NewLoc);
+
+	// Flip sprite based on horizontal direction toward player
+	if (SpriteComponent)
+	{
+		float FlipScale = (ToPlayer.X < 0.0f) ? -1.0f : 1.0f;
+		SpriteComponent->SetRelativeScale3D(FVector(FlipScale, 1.0f, 1.0f));
+	}
 }

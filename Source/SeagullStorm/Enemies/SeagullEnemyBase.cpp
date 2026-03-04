@@ -81,6 +81,13 @@ void ASeagullEnemyBase::MoveTowardPlayer(float DeltaTime)
 	FVector Dir = (Player->GetActorLocation() - GetActorLocation()).GetSafeNormal();
 	FVector NewLoc = GetActorLocation() + Dir * MoveSpeed * DeltaTime;
 	SetActorLocation(NewLoc);
+
+	// Flip sprite based on horizontal direction
+	if (SpriteComponent)
+	{
+		float FlipScale = (Dir.X < 0.0f) ? -1.0f : 1.0f;
+		SpriteComponent->SetRelativeScale3D(FVector(FlipScale, 1.0f, 1.0f));
+	}
 }
 
 void ASeagullEnemyBase::OnDeath()

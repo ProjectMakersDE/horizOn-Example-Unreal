@@ -1,8 +1,10 @@
 #include "UI/SeagullLevelUpOverlay.h"
 #include "Core/SeagullStormGameState.h"
+#include "Core/SeagullStormGameMode.h"
 #include "Core/SeagullPlayerController.h"
 #include "Core/SeagullGameInstance.h"
 #include "Horizon/SeagullHorizonManager.h"
+#include "Audio/SeagullAudioManager.h"
 #include "Components/Button.h"
 #include "Components/TextBlock.h"
 #include "Kismet/GameplayStatics.h"
@@ -41,6 +43,13 @@ void USeagullLevelUpOverlay::SelectChoice(int32 Index)
 	if (!Choices.IsValidIndex(Index)) return;
 
 	const FSeagullLevelUpChoice& Choice = Choices[Index];
+
+	// Play upgrade select SFX
+	ASeagullStormGameMode* GM = Cast<ASeagullStormGameMode>(UGameplayStatics::GetGameMode(GetWorld()));
+	if (GM && GM->AudioManager && GM->AudioManager->SFX_UpgradeSelect)
+	{
+		GM->AudioManager->PlaySFX(GM->AudioManager->SFX_UpgradeSelect, GetWorld());
+	}
 
 	// Apply to game state
 	ASeagullStormGameState* GS = GetWorld()->GetGameState<ASeagullStormGameState>();

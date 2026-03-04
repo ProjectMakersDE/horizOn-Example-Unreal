@@ -78,6 +78,13 @@ void ASeagullPlayerPawn::Tick(float DeltaTime)
 			WorldDir.Normalize();
 			AddMovementInput(WorldDir, 1.0f);
 			LastMoveDirection = Input.GetSafeNormal();
+
+			// Flip sprite based on horizontal direction
+			if (SpriteComponent && LastMoveDirection.X != 0.0f)
+			{
+				float FlipScale = (LastMoveDirection.X < 0.0f) ? -1.0f : 1.0f;
+				SpriteComponent->SetRelativeScale3D(FVector(FlipScale, 1.0f, 1.0f));
+			}
 		}
 	}
 

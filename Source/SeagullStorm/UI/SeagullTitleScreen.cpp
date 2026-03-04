@@ -3,6 +3,8 @@
 #include "Core/SeagullGameInstance.h"
 #include "Core/SeagullStormGameMode.h"
 #include "Horizon/SeagullHorizonManager.h"
+#include "HorizonSubsystem.h"
+#include "Managers/HorizonAuthManager.h"
 #include "Components/Button.h"
 #include "Components/TextBlock.h"
 #include "Components/EditableTextBox.h"
@@ -43,15 +45,44 @@ void USeagullTitleScreen::OnGuestClicked()
 
 void USeagullTitleScreen::OnGoogleClicked()
 {
-	// Google OAuth is not available on this platform in the SDK example
-	// Show user-facing error rather than silent log
-	if (StatusText)
+	USeagullGameInstance* GI = Cast<USeagullGameInstance>(UGameplayStatics::GetGameInstance(GetWorld()));
+	if (!GI) return;
+
+	UHorizonSubsystem* Subsystem = GI->GetHorizonSubsystem();
+	if (Subsystem && Subsystem->Auth)
 	{
-		StatusText->SetText(FText::FromString(TEXT("Google sign-in is not available on this platform")));
+		// Attempt SDK Google sign-in. On platforms without a real Google auth code
+		// this will fail, which is handled in the callback.
+		Subsystem->Auth->SignInGoogle(TEXT(""), TEXT(""), FOnAuthComplete::CreateLambda(
+			[this](bool bSuccess)
+			{
+				if (bSuccess)
+				{
+					OnAuthSuccess();
+				}
+				else
+				{
+					if (StatusText)
+					{
+						StatusText->SetText(FText::FromString(TEXT("Google sign-in is not available on this platform")));
+					}
+					else
+					{
+						UE_LOG(LogSeagullStorm, Warning, TEXT("Google sign-in not available on this platform"));
+					}
+				}
+			}));
 	}
 	else
 	{
-		UE_LOG(LogSeagullStorm, Warning, TEXT("Google sign-in not available on this platform"));
+		if (StatusText)
+		{
+			StatusText->SetText(FText::FromString(TEXT("Google sign-in is not available on this platform")));
+		}
+		else
+		{
+			UE_LOG(LogSeagullStorm, Warning, TEXT("Google sign-in not available on this platform"));
+		}
 	}
 }
 
