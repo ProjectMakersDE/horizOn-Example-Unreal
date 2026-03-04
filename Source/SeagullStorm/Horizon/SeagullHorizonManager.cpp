@@ -267,3 +267,11 @@ void USeagullHorizonManager::SetCrashCustomKey(const FString& Key, const FString
 		Subsystem->Crashes->SetCustomKey(Key, Value);
 	}
 }
+
+void USeagullHorizonManager::RecordException(const FString& Error, const FString& StackTrace)
+{
+	if (Subsystem && Subsystem->Crashes)
+	{
+		Subsystem->Crashes->RecordException(Error, StackTrace);
+	}
+}

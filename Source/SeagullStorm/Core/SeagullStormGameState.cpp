@@ -1,7 +1,10 @@
 #include "Core/SeagullStormGameState.h"
 #include "Data/SeagullConfigCache.h"
 #include "Player/SeagullPlayerPawn.h"
+#include "Player/SeagullHealthComponent.h"
+#include "Player/SeagullXPComponent.h"
 #include "Weapons/SeagullWeaponManager.h"
+#include "GameFramework/FloatingPawnMovement.h"
 #include "SeagullStorm.h"
 #include "Kismet/GameplayStatics.h"
 
@@ -194,7 +197,42 @@ void ASeagullStormGameState::ApplyLevelUpChoice(const FSeagullLevelUpChoice& Cho
 			WM->UpgradeWeapon(WType);
 		}
 	}
-	// stat_boost choices are handled by the pawn
+	else if (Choice.Type == TEXT("stat_boost"))
+	{
+		if (PlayerPawn)
+		{
+			if (Choice.Id == TEXT("move_speed"))
+			{
+				// Increase movement speed by ~10%
+				PlayerPawn->BaseSpeed *= 1.1f;
+				if (PlayerPawn->MovementComponent)
+				{
+					PlayerPawn->MovementComponent->MaxSpeed = PlayerPawn->BaseSpeed;
+				}
+				UE_LOG(LogSeagullStorm, Log, TEXT("Stat boost: move_speed -> %.0f"), PlayerPawn->BaseSpeed);
+			}
+			else if (Choice.Id == TEXT("max_hp"))
+			{
+				// Increase max HP by 20 and heal to new max
+				if (PlayerPawn->HealthComponent)
+				{
+					int32 NewMax = PlayerPawn->HealthComponent->MaxHP + 20;
+					PlayerPawn->HealthComponent->SetMaxHP(NewMax);
+					PlayerPawn->HealthComponent->Heal(NewMax);
+					UE_LOG(LogSeagullStorm, Log, TEXT("Stat boost: max_hp -> %d"), NewMax);
+				}
+			}
+			else if (Choice.Id == TEXT("xp_magnet"))
+			{
+				// Increase pickup radius by ~30%
+				if (PlayerPawn->XPComponent)
+				{
+					PlayerPawn->XPComponent->PickupRadius *= 1.3f;
+					UE_LOG(LogSeagullStorm, Log, TEXT("Stat boost: xp_magnet -> %.0f"), PlayerPawn->XPComponent->PickupRadius);
+				}
+			}
+		}
+	}
 }
 
 int32 ASeagullStormGameState::CalculateXPToNextLevel() const

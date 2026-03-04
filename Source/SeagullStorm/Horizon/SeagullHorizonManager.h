@@ -58,6 +58,7 @@ public:
 	void StartCrashCapture();
 	void RecordBreadcrumb(const FString& Type, const FString& Message);
 	void SetCrashCustomKey(const FString& Key, const FString& Value);
+	void RecordException(const FString& Error, const FString& StackTrace);
 
 private:
 	UPROPERTY()

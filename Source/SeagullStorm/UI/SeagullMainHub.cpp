@@ -12,6 +12,8 @@
 #include "Components/TextBlock.h"
 #include "Components/VerticalBox.h"
 #include "Kismet/GameplayStatics.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
 #include "SeagullStorm.h"
 
 void USeagullMainHub::NativeConstruct()
@@ -51,13 +53,30 @@ void USeagullMainHub::LoadHubData()
 	// 2. Load Cloud Save
 	if (!GI->bSaveLoaded)
 	{
-		HM->LoadData([GI](bool bSuccess, const FString& Data)
+		HM->LoadData([GI, HM](bool bSuccess, const FString& Data)
 		{
 			if (bSuccess && !Data.IsEmpty())
 			{
-				GI->SaveData = FSeagullSaveData::FromJsonString(Data);
-				GI->bSaveLoaded = true;
-				UE_LOG(LogSeagullStorm, Log, TEXT("Cloud Save loaded: %d coins"), GI->SaveData.Coins);
+				TSharedPtr<FJsonObject> JsonObject;
+				TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(Data);
+				if (FJsonSerializer::Deserialize(Reader, JsonObject) && JsonObject.IsValid())
+				{
+					GI->SaveData = FSeagullSaveData::FromJsonString(Data);
+					GI->bSaveLoaded = true;
+					UE_LOG(LogSeagullStorm, Log, TEXT("Cloud Save loaded: %d coins"), GI->SaveData.Coins);
+				}
+				else
+				{
+					UE_LOG(LogSeagullStorm, Warning, TEXT("Cloud Save JSON parse failed, using defaults"));
+					if (HM)
+					{
+						HM->RecordException(
+							TEXT("Cloud save JSON deserialization failed"),
+							FString::Printf(TEXT("Data length: %d, snippet: %s"), Data.Len(), *Data.Left(200)));
+					}
+					GI->SaveData.InitDefaults();
+					GI->bSaveLoaded = true;
+				}
 			}
 			else
 			{
