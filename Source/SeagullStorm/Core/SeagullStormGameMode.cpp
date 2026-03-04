@@ -30,6 +30,7 @@ void ASeagullStormGameMode::BeginPlay()
 
 	// Create audio manager
 	AudioManager = NewObject<USeagullAudioManager>(this);
+	AudioManager->Initialize();
 
 	// Create enemy spawner
 	EnemySpawner = NewObject<USeagullEnemySpawner>(this);
@@ -39,6 +40,13 @@ void ASeagullStormGameMode::BeginPlay()
 	if (HM)
 	{
 		HM->ConnectToServer();
+
+		// Start crash capture once at app launch
+		if (!bCrashCaptureStarted)
+		{
+			HM->StartCrashCapture();
+			bCrashCaptureStarted = true;
+		}
 	}
 
 	// Try session restore
@@ -304,13 +312,14 @@ void ASeagullStormGameMode::EndRun(bool bPlayerDied)
 
 			// User log
 			FString LogMsg = FString::Printf(
-				TEXT("Run ended | Waves: %d | Level: %d | Score: %d | Duration: %dm%ds | Upgrades: speed:%d,dmg:%d,hp:%d | Coins earned: %d"),
+				TEXT("Run ended | Waves: %d | Level: %d | Score: %d | Duration: %dm%ds | Upgrades: speed:%d,dmg:%d,hp:%d,magnet:%d | Coins earned: %d"),
 				GS->CurrentWave, GS->CurrentLevel, GS->CurrentScore,
 				static_cast<int32>(GS->RunStats.Duration) / 60,
 				static_cast<int32>(GS->RunStats.Duration) % 60,
 				GI->SaveData.GetUpgradeLevel(TEXT("speed")),
 				GI->SaveData.GetUpgradeLevel(TEXT("damage")),
 				GI->SaveData.GetUpgradeLevel(TEXT("hp")),
+				GI->SaveData.GetUpgradeLevel(TEXT("magnet")),
 				CoinsEarned);
 			HM->LogInfo(LogMsg);
 		}

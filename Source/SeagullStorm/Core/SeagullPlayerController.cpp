@@ -55,6 +55,17 @@ void ASeagullPlayerController::BeginPlay()
 	// Escape for pause
 	InputMappingContext->MapKey(PauseAction, EKeys::Escape);
 
+	// Gamepad left-stick binding
+	InputMappingContext->MapKey(MoveAction, EKeys::Gamepad_LeftX);
+
+	FEnhancedActionKeyMapping& StickYMap = InputMappingContext->MapKey(MoveAction, EKeys::Gamepad_LeftY);
+	UInputModifierSwizzleAxis* SwizzleStickY = NewObject<UInputModifierSwizzleAxis>(this);
+	SwizzleStickY->Order = EInputAxisSwizzle::YXZ;
+	StickYMap.Modifiers.Add(SwizzleStickY);
+
+	// Gamepad Start button for pause
+	InputMappingContext->MapKey(PauseAction, EKeys::Gamepad_Special_Right);
+
 	// Register
 	UEnhancedInputLocalPlayerSubsystem* EIS = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer());
 	if (EIS)

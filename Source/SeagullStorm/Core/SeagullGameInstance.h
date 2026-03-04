@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "Engine/GameInstance.h"
 #include "Data/SeagullSaveData.h"
+#include "Models/HorizonNewsEntry.h"
 #include "SeagullGameInstance.generated.h"
 
 class USeagullConfigCache;
@@ -26,6 +27,9 @@ public:
 
 	bool bConfigLoaded = false;
 	bool bSaveLoaded = false;
+
+	bool bNewsLoaded = false;
+	TArray<FHorizonNewsEntry> CachedNews;
 
 	// Track consecutive wave-1 deaths for warn log
 	int32 ConsecutiveWave1Deaths = 0;

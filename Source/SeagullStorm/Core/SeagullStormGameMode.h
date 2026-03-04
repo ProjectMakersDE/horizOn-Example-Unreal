@@ -52,6 +52,7 @@ public:
 	USeagullGameOverScreen* CachedGameOverWidget = nullptr;
 
 private:
+	bool bCrashCaptureStarted = false;
 	ESeagullGameScreen CurrentScreen = ESeagullGameScreen::Title;
 	float SurvivalScoreAccumulator = 0.f;
 

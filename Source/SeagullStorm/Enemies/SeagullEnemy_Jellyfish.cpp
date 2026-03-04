@@ -1,4 +1,5 @@
 #include "Enemies/SeagullEnemy_Jellyfish.h"
+#include "Enemies/SeagullPoisonZone.h"
 #include "SeagullStorm.h"
 
 ASeagullEnemy_Jellyfish::ASeagullEnemy_Jellyfish()
@@ -13,7 +14,15 @@ ASeagullEnemy_Jellyfish::ASeagullEnemy_Jellyfish()
 
 void ASeagullEnemy_Jellyfish::OnDeath()
 {
-	// Could spawn poison zone here in future
-	// For now, just use base death behavior
+	// Spawn poison zone at death location
+	UWorld* World = GetWorld();
+	if (World)
+	{
+		FActorSpawnParameters Params;
+		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		World->SpawnActor<ASeagullPoisonZone>(ASeagullPoisonZone::StaticClass(),
+			GetActorLocation(), FRotator::ZeroRotator, Params);
+	}
+
 	Super::OnDeath();
 }

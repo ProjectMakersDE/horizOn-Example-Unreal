@@ -18,7 +18,7 @@ void USeagullFeedbackForm::NativeConstruct()
 	if (CategoryDropdown)
 	{
 		CategoryDropdown->AddOption(TEXT("BUG"));
-		CategoryDropdown->AddOption(TEXT("FEATURE"));
+		CategoryDropdown->AddOption(TEXT("FEATURE_REQUEST"));
 		CategoryDropdown->AddOption(TEXT("GENERAL"));
 		CategoryDropdown->SetSelectedOption(TEXT("GENERAL"));
 	}

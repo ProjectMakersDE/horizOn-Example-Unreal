@@ -38,6 +38,9 @@ protected:
 	UPROPERTY(meta = (BindWidgetOptional))
 	UButton* RegisterButton = nullptr;
 
+	UPROPERTY(meta = (BindWidgetOptional))
+	UTextBlock* StatusText = nullptr;
+
 private:
 	UFUNCTION()
 	void OnGuestClicked();

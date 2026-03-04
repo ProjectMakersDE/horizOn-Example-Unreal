@@ -84,25 +84,23 @@ void USeagullMainHub::LoadHubData()
 		}
 	});
 
-	// 4. Load News
-	HM->LoadNews(5, TEXT("en"), [this](bool bSuccess, const TArray<FHorizonNewsEntry>& Entries)
+	// 4. Load News (cache in GameInstance for pause menu reuse)
+	if (!GI->bNewsLoaded)
 	{
-		if (bSuccess && NewsBox)
+		HM->LoadNews(5, TEXT("en"), [this, GI](bool bSuccess, const TArray<FHorizonNewsEntry>& Entries)
 		{
-			NewsBox->ClearChildren();
-			for (const FHorizonNewsEntry& Entry : Entries)
+			if (bSuccess)
 			{
-				UTextBlock* Row = NewObject<UTextBlock>(this);
-				Row->SetText(FText::FromString(
-					FString::Printf(TEXT("[%s] %s"), *Entry.ReleaseDate, *Entry.Title)));
-				NewsBox->AddChildToVerticalBox(Row);
+				GI->CachedNews = Entries;
+				GI->bNewsLoaded = true;
 			}
-			UE_LOG(LogSeagullStorm, Log, TEXT("News loaded: %d entries"), Entries.Num());
-		}
-	});
-
-	// 5. Start Crash Capture
-	HM->StartCrashCapture();
+			DisplayNews(GI->CachedNews);
+		});
+	}
+	else
+	{
+		DisplayNews(GI->CachedNews);
+	}
 
 	RefreshDisplay();
 }
@@ -183,6 +181,14 @@ void USeagullMainHub::TryBuyUpgrade(const FString& Key)
 	GI->SaveData.Coins -= Cost;
 	GI->SaveData.Upgrades.FindOrAdd(Key) = CurrentLevel + 1;
 
+	// Record breadcrumb for crash reporting
+	USeagullHorizonManager* HM = GI->GetHorizonManager();
+	if (HM)
+	{
+		int32 NewLevel = CurrentLevel + 1;
+		HM->RecordBreadcrumb(TEXT("user_action"), FString::Printf(TEXT("bought_%s_%d"), *Key, NewLevel));
+	}
+
 	UE_LOG(LogSeagullStorm, Log, TEXT("Bought %s upgrade: level %d -> %d (cost %d)"), *Key, CurrentLevel, CurrentLevel + 1, Cost);
 
 	// Play upgrade SFX
@@ -193,4 +199,18 @@ void USeagullMainHub::TryBuyUpgrade(const FString& Key)
 	}
 
 	RefreshDisplay();
+}
+
+void USeagullMainHub::DisplayNews(const TArray<FHorizonNewsEntry>& Entries)
+{
+	if (!NewsBox) return;
+	NewsBox->ClearChildren();
+	for (const FHorizonNewsEntry& Entry : Entries)
+	{
+		UTextBlock* Row = NewObject<UTextBlock>(this);
+		Row->SetText(FText::FromString(
+			FString::Printf(TEXT("[%s] %s"), *Entry.ReleaseDate, *Entry.Title)));
+		NewsBox->AddChildToVerticalBox(Row);
+	}
+	UE_LOG(LogSeagullStorm, Log, TEXT("News displayed: %d entries"), Entries.Num());
 }

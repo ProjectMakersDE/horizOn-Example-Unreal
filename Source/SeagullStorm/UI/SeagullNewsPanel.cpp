@@ -19,19 +19,11 @@ void USeagullNewsPanel::LoadNews()
 	USeagullGameInstance* GI = Cast<USeagullGameInstance>(UGameplayStatics::GetGameInstance(GetWorld()));
 	if (!GI) return;
 
-	USeagullHorizonManager* HM = GI->GetHorizonManager();
-	if (!HM) return;
-
-	HM->LoadNews(5, TEXT("en"), [this](bool bSuccess, const TArray<FHorizonNewsEntry>& Entries)
+	// Read from cache — zero network requests during run
+	for (const FHorizonNewsEntry& Entry : GI->CachedNews)
 	{
-		if (bSuccess)
-		{
-			for (const FHorizonNewsEntry& Entry : Entries)
-			{
-				UE_LOG(LogSeagullStorm, Log, TEXT("News: %s (%s)"), *Entry.Title, *Entry.ReleaseDate);
-			}
-		}
-	});
+		UE_LOG(LogSeagullStorm, Log, TEXT("News: %s (%s)"), *Entry.Title, *Entry.ReleaseDate);
+	}
 }
 
 void USeagullNewsPanel::OnCloseClicked()

@@ -5,6 +5,9 @@
 #include "Components/Button.h"
 #include "Components/TextBlock.h"
 #include "Kismet/GameplayStatics.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
+#include "Dom/JsonObject.h"
 #include "SeagullStorm.h"
 
 void USeagullGiftCodePanel::NativeConstruct()
@@ -53,10 +56,19 @@ void USeagullGiftCodePanel::OnRedeemClicked()
 			if (bSuccess)
 			{
 				GI->SaveData.GiftCodesRedeemed.Add(Code);
-				// Parse gift data for coins (simplified)
-				GI->SaveData.Coins += 500; // Default reward
-				if (StatusText) StatusText->SetText(FText::FromString(TEXT("Code redeemed! +500 coins")));
-				UE_LOG(LogSeagullStorm, Log, TEXT("Gift code redeemed: %s"), *Code);
+				// Parse gift data for coin reward
+				int32 CoinReward = 0;
+				TSharedPtr<FJsonObject> JsonObj;
+				TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(GiftData);
+				if (FJsonSerializer::Deserialize(Reader, JsonObj) && JsonObj.IsValid())
+				{
+					CoinReward = JsonObj->GetIntegerField(TEXT("coins"));
+				}
+				if (CoinReward <= 0) CoinReward = 500; // Fallback
+				GI->SaveData.Coins += CoinReward;
+				if (StatusText) StatusText->SetText(FText::FromString(
+					FString::Printf(TEXT("Code redeemed! +%d coins"), CoinReward)));
+				UE_LOG(LogSeagullStorm, Log, TEXT("Gift code redeemed: %s (+%d coins)"), *Code, CoinReward);
 			}
 			else
 			{

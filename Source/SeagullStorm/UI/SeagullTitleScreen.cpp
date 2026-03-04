@@ -43,8 +43,16 @@ void USeagullTitleScreen::OnGuestClicked()
 
 void USeagullTitleScreen::OnGoogleClicked()
 {
-	// Google OAuth not implemented in this example
-	UE_LOG(LogSeagullStorm, Log, TEXT("Google sign-in not available in this example"));
+	// Google OAuth is not available on this platform in the SDK example
+	// Show user-facing error rather than silent log
+	if (StatusText)
+	{
+		StatusText->SetText(FText::FromString(TEXT("Google sign-in is not available on this platform")));
+	}
+	else
+	{
+		UE_LOG(LogSeagullStorm, Warning, TEXT("Google sign-in not available on this platform"));
+	}
 }
 
 void USeagullTitleScreen::OnEmailClicked()

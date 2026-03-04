@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
+#include "Models/HorizonNewsEntry.h"
 #include "SeagullMainHub.generated.h"
 
 class UButton;
@@ -68,4 +69,5 @@ private:
 	void OnBuyMagnet();
 
 	void TryBuyUpgrade(const FString& Key);
+	void DisplayNews(const TArray<FHorizonNewsEntry>& Entries);
 };

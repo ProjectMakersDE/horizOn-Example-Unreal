@@ -12,6 +12,7 @@ class USeagullAudioManager : public UObject
 	GENERATED_BODY()
 
 public:
+	void Initialize();
 	void PlayMusic(USoundWave* Track, UWorld* World);
 	void StopMusic();
 	void PlaySFX(USoundWave* Sound, UWorld* World);
