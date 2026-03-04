@@ -1,5 +1,7 @@
 #include "Weapons/SeagullWeapon_Screech.h"
 #include "Enemies/SeagullEnemyBase.h"
+#include "Core/SeagullStormGameMode.h"
+#include "Audio/SeagullAudioManager.h"
 #include "EngineUtils.h"
 #include "SeagullStorm.h"
 
@@ -32,5 +34,12 @@ void USeagullWeapon_Screech::Fire()
 		{
 			Enemy->TakeDamageAmount(static_cast<int32>(GetEffectiveDamage()));
 		}
+	}
+
+	// Play SFX
+	ASeagullStormGameMode* GM = Cast<ASeagullStormGameMode>(World->GetAuthGameMode());
+	if (GM && GM->AudioManager && GM->AudioManager->SFX_Screech)
+	{
+		GM->AudioManager->PlaySFX(GM->AudioManager->SFX_Screech, World);
 	}
 }

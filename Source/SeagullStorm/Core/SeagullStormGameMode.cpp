@@ -6,6 +6,11 @@
 #include "Horizon/SeagullHorizonManager.h"
 #include "Audio/SeagullAudioManager.h"
 #include "Enemies/SeagullEnemySpawner.h"
+#include "Map/SeagullMapGenerator.h"
+#include "Weapons/SeagullWeaponManager.h"
+#include "Weapons/SeagullWeaponBase.h"
+#include "Data/SeagullConfigCache.h"
+#include "UI/SeagullGameOverScreen.h"
 #include "SeagullStorm.h"
 #include "Kismet/GameplayStatics.h"
 #include "EngineUtils.h"
@@ -70,6 +75,15 @@ void ASeagullStormGameMode::Tick(float DeltaTime)
 		{
 			GS->TickTimer(DeltaTime);
 
+			// Add survival time to score (Fix 12: 1 point per second)
+			SurvivalScoreAccumulator += DeltaTime;
+			if (SurvivalScoreAccumulator >= 1.0f)
+			{
+				int32 TimePoints = static_cast<int32>(SurvivalScoreAccumulator);
+				GS->AddScore(TimePoints);
+				SurvivalScoreAccumulator -= static_cast<float>(TimePoints);
+			}
+
 			if (GS->IsTimerExpired())
 			{
 				// Spawn boss or end run
@@ -85,6 +99,11 @@ void ASeagullStormGameMode::Tick(float DeltaTime)
 					if (bBossEnabled)
 					{
 						EnemySpawner->SpawnBoss(GetWorld());
+						// Switch to boss music
+						if (AudioManager && AudioManager->MusicBoss)
+						{
+							AudioManager->CrossfadeToTrack(AudioManager->MusicBoss, GetWorld());
+						}
 					}
 					else
 					{
@@ -117,6 +136,28 @@ void ASeagullStormGameMode::SwitchToScreen(ESeagullGameScreen NewScreen)
 		PC->OnScreenChanged(NewScreen);
 	}
 
+	// Music transitions
+	if (AudioManager)
+	{
+		switch (NewScreen)
+		{
+			case ESeagullGameScreen::Title:
+			case ESeagullGameScreen::Hub:
+				AudioManager->CrossfadeToTrack(AudioManager->MusicMenu, GetWorld());
+				break;
+			case ESeagullGameScreen::Run:
+				AudioManager->CrossfadeToTrack(AudioManager->MusicBattle, GetWorld());
+				break;
+			case ESeagullGameScreen::GameOver:
+				AudioManager->CrossfadeToTrack(AudioManager->MusicMenu, GetWorld());
+				if (AudioManager->SFX_GameOver)
+				{
+					AudioManager->PlaySFX(AudioManager->SFX_GameOver, GetWorld());
+				}
+				break;
+		}
+	}
+
 	// Record breadcrumb
 	USeagullHorizonManager* HM = GetHorizonManager();
 	if (HM)
@@ -137,19 +178,67 @@ void ASeagullStormGameMode::SwitchToScreen(ESeagullGameScreen NewScreen)
 
 void ASeagullStormGameMode::StartRun()
 {
+	USeagullGameInstance* GI = GetSeagullGameInstance();
+
 	// Initialize game state
 	ASeagullStormGameState* GS = GetGameState<ASeagullStormGameState>();
 	if (GS)
 	{
-		USeagullGameInstance* GI = GetSeagullGameInstance();
 		GS->InitRun(GI ? GI->GetConfigCache() : nullptr);
+
+		// Bind level-up trigger (Fix 10)
+		GS->OnTriggerLevelUpChoices.AddDynamic(this, &ASeagullStormGameMode::OnLevelUpTriggered);
 	}
 
 	// Reset enemy spawner
 	if (EnemySpawner)
 	{
-		USeagullGameInstance* GI = GetSeagullGameInstance();
 		EnemySpawner->Initialize(GI ? GI->GetConfigCache() : nullptr);
+	}
+
+	// Spawn map generator (Fix 8)
+	if (GetWorld())
+	{
+		FActorSpawnParameters MapParams;
+		MapParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		GetWorld()->SpawnActor<ASeagullMapGenerator>(ASeagullMapGenerator::StaticClass(),
+			FVector::ZeroVector, FRotator::ZeroRotator, MapParams);
+	}
+
+	// Spawn player pawn and possess (Fix 8)
+	if (GetWorld())
+	{
+		FActorSpawnParameters PawnParams;
+		PawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		ASeagullPlayerPawn* Pawn = GetWorld()->SpawnActor<ASeagullPlayerPawn>(
+			ASeagullPlayerPawn::StaticClass(), FVector::ZeroVector, FRotator::ZeroRotator, PawnParams);
+
+		if (Pawn)
+		{
+			ASeagullPlayerController* PC = Cast<ASeagullPlayerController>(
+				UGameplayStatics::GetPlayerController(GetWorld(), 0));
+			if (PC)
+			{
+				PC->Possess(Pawn);
+			}
+
+			// Initialize weapon stats from config (Fix 9)
+			if (GI && GI->GetConfigCache() && Pawn->WeaponManager)
+			{
+				USeagullConfigCache* Config = GI->GetConfigCache();
+				USeagullWeaponBase* Feather = Pawn->WeaponManager->GetWeapon(ESeagullWeaponType::Feather);
+				if (Feather) Feather->SetStats(Config->FeatherStats.Damage, Config->FeatherStats.Cooldown);
+
+				USeagullWeaponBase* Screech = Pawn->WeaponManager->GetWeapon(ESeagullWeaponType::Screech);
+				if (Screech) Screech->SetStats(Config->ScreechStats.Damage, Config->ScreechStats.Cooldown);
+
+				USeagullWeaponBase* Dive = Pawn->WeaponManager->GetWeapon(ESeagullWeaponType::Dive);
+				if (Dive) Dive->SetStats(Config->DiveStats.Damage, Config->DiveStats.Cooldown);
+
+				USeagullWeaponBase* Gust = Pawn->WeaponManager->GetWeapon(ESeagullWeaponType::Gust);
+				if (Gust) Gust->SetStats(Config->GustStats.Damage, Config->GustStats.Cooldown);
+			}
+		}
 	}
 
 	SwitchToScreen(ESeagullGameScreen::Run);
@@ -198,7 +287,19 @@ void ASeagullStormGameMode::EndRun(bool bPlayerDied)
 		// Submit to horizOn
 		if (HM)
 		{
-			HM->SubmitScore(static_cast<int64>(GS->CurrentScore), [](bool) {});
+			// Submit score first, then fetch rank in callback (Fix 5)
+			HM->SubmitScore(static_cast<int64>(GS->CurrentScore), [this, HM](bool bScoreSuccess)
+			{
+				// After score is submitted, fetch rank
+				HM->GetRank([this](bool bRankSuccess, const FHorizonLeaderboardEntry& Entry)
+				{
+					if (bRankSuccess && CachedGameOverWidget)
+					{
+						CachedGameOverWidget->SetRank(Entry.Position);
+					}
+				});
+			});
+
 			HM->SaveData(GI->SaveData.ToJsonString(), [](bool) {});
 
 			// User log
@@ -215,6 +316,7 @@ void ASeagullStormGameMode::EndRun(bool bPlayerDied)
 		}
 	}
 
+	SurvivalScoreAccumulator = 0.f;
 	CleanupRunActors();
 	SwitchToScreen(ESeagullGameScreen::GameOver);
 }
@@ -236,6 +338,36 @@ USeagullHorizonManager* ASeagullStormGameMode::GetHorizonManager() const
 	return GI ? GI->GetHorizonManager() : nullptr;
 }
 
+void ASeagullStormGameMode::OnLevelUpTriggered()
+{
+	ASeagullStormGameState* GS = GetGameState<ASeagullStormGameState>();
+	if (!GS) return;
+
+	TArray<FSeagullLevelUpChoice> Choices = GS->GetLevelUpChoices(3);
+	if (Choices.Num() == 0) return;
+
+	ASeagullPlayerController* PC = Cast<ASeagullPlayerController>(
+		UGameplayStatics::GetPlayerController(GetWorld(), 0));
+	if (PC)
+	{
+		PC->ShowLevelUpOverlay(Choices);
+	}
+
+	// Breadcrumb for level-up event (Fix 11)
+	USeagullHorizonManager* HM = GetHorizonManager();
+	if (HM)
+	{
+		HM->RecordBreadcrumb(TEXT("state"), FString::Printf(TEXT("level_%d"), GS->CurrentLevel));
+		HM->SetCrashCustomKey(TEXT("level"), FString::FromInt(GS->CurrentLevel));
+	}
+
+	// Play level-up SFX (Fix 6)
+	if (AudioManager && AudioManager->SFX_LevelUp)
+	{
+		AudioManager->PlaySFX(AudioManager->SFX_LevelUp, GetWorld());
+	}
+}
+
 void ASeagullStormGameMode::CleanupRunActors()
 {
 	// Destroy all enemies, pickups, projectiles
@@ -248,7 +380,8 @@ void ASeagullStormGameMode::CleanupRunActors()
 			if (Actor && (Actor->Tags.Contains(TEXT("Enemy")) ||
 				Actor->Tags.Contains(TEXT("Pickup")) ||
 				Actor->Tags.Contains(TEXT("Projectile")) ||
-				Actor->Tags.Contains(TEXT("PlayerPawn"))))
+				Actor->Tags.Contains(TEXT("PlayerPawn")) ||
+				Actor->IsA<ASeagullMapGenerator>()))
 			{
 				ToDestroy.Add(Actor);
 			}

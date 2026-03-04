@@ -1,5 +1,7 @@
 #include "Weapons/SeagullWeapon_Gust.h"
 #include "Enemies/SeagullEnemyBase.h"
+#include "Core/SeagullStormGameMode.h"
+#include "Audio/SeagullAudioManager.h"
 #include "EngineUtils.h"
 #include "SeagullStorm.h"
 
@@ -38,5 +40,12 @@ void USeagullWeapon_Gust::Fire()
 			FVector KBDir = (EnemyPos - Center).GetSafeNormal();
 			Enemy->SetActorLocation(EnemyPos + KBDir * KnockbackForce);
 		}
+	}
+
+	// Play SFX
+	ASeagullStormGameMode* GM = Cast<ASeagullStormGameMode>(World->GetAuthGameMode());
+	if (GM && GM->AudioManager && GM->AudioManager->SFX_Gust)
+	{
+		GM->AudioManager->PlaySFX(GM->AudioManager->SFX_Gust, World);
 	}
 }

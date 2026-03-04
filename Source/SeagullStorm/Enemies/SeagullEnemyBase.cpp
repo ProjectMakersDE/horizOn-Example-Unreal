@@ -3,6 +3,8 @@
 #include "Player/SeagullHealthComponent.h"
 #include "Pickups/SeagullPickup_XP.h"
 #include "Core/SeagullStormGameState.h"
+#include "Core/SeagullStormGameMode.h"
+#include "Audio/SeagullAudioManager.h"
 #include "Components/SphereComponent.h"
 #include "PaperFlipbookComponent.h"
 #include "Kismet/GameplayStatics.h"
@@ -53,6 +55,17 @@ void ASeagullEnemyBase::TakeDamageAmount(int32 Amount)
 	if (IsDead()) return;
 
 	CurrentHP -= Amount;
+
+	// Play enemy hit SFX
+	UWorld* World = GetWorld();
+	if (World)
+	{
+		ASeagullStormGameMode* GM = Cast<ASeagullStormGameMode>(World->GetAuthGameMode());
+		if (GM && GM->AudioManager && GM->AudioManager->SFX_EnemyHit)
+		{
+			GM->AudioManager->PlaySFX(GM->AudioManager->SFX_EnemyHit, World);
+		}
+	}
 
 	if (CurrentHP <= 0)
 	{
@@ -110,5 +123,16 @@ void ASeagullEnemyBase::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AAct
 	{
 		Player->HealthComponent->TakeDamage(ContactDamage);
 		AttackTimer = AttackCooldown;
+
+		// Play enemy attack SFX
+		UWorld* World = GetWorld();
+		if (World)
+		{
+			ASeagullStormGameMode* GM = Cast<ASeagullStormGameMode>(World->GetAuthGameMode());
+			if (GM && GM->AudioManager && GM->AudioManager->SFX_EnemyAttack)
+			{
+				GM->AudioManager->PlaySFX(GM->AudioManager->SFX_EnemyAttack, World);
+			}
+		}
 	}
 }

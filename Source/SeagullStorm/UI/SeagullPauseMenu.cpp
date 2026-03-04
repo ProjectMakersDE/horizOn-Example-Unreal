@@ -1,4 +1,6 @@
 #include "UI/SeagullPauseMenu.h"
+#include "UI/SeagullNewsPanel.h"
+#include "UI/SeagullFeedbackForm.h"
 #include "Core/SeagullPlayerController.h"
 #include "Core/SeagullStormGameMode.h"
 #include "Components/Button.h"
@@ -23,12 +25,20 @@ void USeagullPauseMenu::OnResumeClicked()
 
 void USeagullPauseMenu::OnNewsClicked()
 {
-	UE_LOG(LogSeagullStorm, Log, TEXT("News panel requested from pause menu"));
+	APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
+	if (!PC) return;
+
+	USeagullNewsPanel* Panel = CreateWidget<USeagullNewsPanel>(PC);
+	if (Panel) Panel->AddToViewport(200);
 }
 
 void USeagullPauseMenu::OnFeedbackClicked()
 {
-	UE_LOG(LogSeagullStorm, Log, TEXT("Feedback form requested from pause menu"));
+	APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
+	if (!PC) return;
+
+	USeagullFeedbackForm* Form = CreateWidget<USeagullFeedbackForm>(PC);
+	if (Form) Form->AddToViewport(200);
 }
 
 void USeagullPauseMenu::OnQuitClicked()

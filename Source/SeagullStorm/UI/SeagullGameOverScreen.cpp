@@ -36,20 +36,15 @@ void USeagullGameOverScreen::LoadGameOverData()
 		if (BestText) BestText->SetText(FText::FromString(FString::Printf(TEXT("Best: %d"), GI->SaveData.Highscore)));
 	}
 
-	// Get rank from leaderboard
-	if (GI)
+	// Rank is set externally by GameMode after SubmitScore completes
+	if (RankText) RankText->SetText(FText::FromString(TEXT("Rank: ...")));
+}
+
+void USeagullGameOverScreen::SetRank(int32 Rank)
+{
+	if (RankText)
 	{
-		USeagullHorizonManager* HM = GI->GetHorizonManager();
-		if (HM)
-		{
-			HM->GetRank([this](bool bSuccess, const FHorizonLeaderboardEntry& Entry)
-			{
-				if (bSuccess && RankText)
-				{
-					RankText->SetText(FText::FromString(FString::Printf(TEXT("Rank: #%d"), Entry.Position)));
-				}
-			});
-		}
+		RankText->SetText(FText::FromString(FString::Printf(TEXT("Rank: #%d"), Rank)));
 	}
 }
 

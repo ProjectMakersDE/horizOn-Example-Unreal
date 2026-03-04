@@ -122,7 +122,13 @@ void ASeagullPlayerController::OnScreenChanged(ESeagullGameScreen NewScreen)
 
 		case ESeagullGameScreen::GameOver:
 			GameOverWidget = CreateWidget<USeagullGameOverScreen>(this);
-			if (GameOverWidget) GameOverWidget->AddToViewport();
+			if (GameOverWidget)
+			{
+				GameOverWidget->AddToViewport();
+				// Cache on GameMode for async rank update
+				ASeagullStormGameMode* GM = Cast<ASeagullStormGameMode>(GetWorld()->GetAuthGameMode());
+				if (GM) GM->CachedGameOverWidget = GameOverWidget;
+			}
 			SetInputMode(FInputModeUIOnly());
 			break;
 	}

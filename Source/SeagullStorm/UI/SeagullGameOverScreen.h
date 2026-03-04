@@ -15,6 +15,8 @@ class USeagullGameOverScreen : public UUserWidget
 public:
 	virtual void NativeConstruct() override;
 
+	void SetRank(int32 Rank);
+
 protected:
 	UPROPERTY(meta = (BindWidgetOptional))
 	UTextBlock* ScoreText = nullptr;

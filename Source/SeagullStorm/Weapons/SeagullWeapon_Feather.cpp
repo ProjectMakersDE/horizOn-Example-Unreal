@@ -1,6 +1,8 @@
 #include "Weapons/SeagullWeapon_Feather.h"
 #include "Weapons/SeagullProjectile.h"
 #include "Player/SeagullPlayerPawn.h"
+#include "Core/SeagullStormGameMode.h"
+#include "Audio/SeagullAudioManager.h"
 #include "SeagullStorm.h"
 
 USeagullWeapon_Feather::USeagullWeapon_Feather()
@@ -46,5 +48,12 @@ void USeagullWeapon_Feather::Fire()
 		{
 			Proj->InitProjectile(Direction, GetEffectiveDamage(), 600.f);
 		}
+	}
+
+	// Play SFX
+	ASeagullStormGameMode* GM = Cast<ASeagullStormGameMode>(World->GetAuthGameMode());
+	if (GM && GM->AudioManager && GM->AudioManager->SFX_Feather)
+	{
+		GM->AudioManager->PlaySFX(GM->AudioManager->SFX_Feather, World);
 	}
 }

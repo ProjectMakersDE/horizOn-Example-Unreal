@@ -2,6 +2,8 @@
 #include "Player/SeagullPlayerPawn.h"
 #include "Player/SeagullXPComponent.h"
 #include "Core/SeagullStormGameState.h"
+#include "Core/SeagullStormGameMode.h"
+#include "Audio/SeagullAudioManager.h"
 #include "Kismet/GameplayStatics.h"
 
 ASeagullPickup_XP::ASeagullPickup_XP()
@@ -38,6 +40,17 @@ void ASeagullPickup_XP::OnPickedUp(ASeagullPlayerPawn* Player)
 		{
 			GS->AddXP(XPAmount);
 			GS->AddScore(XPAmount);
+		}
+
+		// Play pickup SFX
+		UWorld* World = GetWorld();
+		if (World)
+		{
+			ASeagullStormGameMode* GM = Cast<ASeagullStormGameMode>(World->GetAuthGameMode());
+			if (GM && GM->AudioManager && GM->AudioManager->SFX_PickupXP)
+			{
+				GM->AudioManager->PlaySFX(GM->AudioManager->SFX_PickupXP, World);
+			}
 		}
 	}
 

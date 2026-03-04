@@ -2,6 +2,8 @@
 #include "Player/SeagullPlayerPawn.h"
 #include "Player/SeagullHealthComponent.h"
 #include "Enemies/SeagullEnemyBase.h"
+#include "Core/SeagullStormGameMode.h"
+#include "Audio/SeagullAudioManager.h"
 #include "EngineUtils.h"
 #include "SeagullStorm.h"
 
@@ -45,4 +47,11 @@ void USeagullWeapon_Dive::Fire()
 
 	// Teleport player to end position
 	Player->SetActorLocation(End);
+
+	// Play SFX
+	ASeagullStormGameMode* GM = Cast<ASeagullStormGameMode>(World->GetAuthGameMode());
+	if (GM && GM->AudioManager && GM->AudioManager->SFX_Dive)
+	{
+		GM->AudioManager->PlaySFX(GM->AudioManager->SFX_Dive, World);
+	}
 }

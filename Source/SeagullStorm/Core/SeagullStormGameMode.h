@@ -9,6 +9,7 @@ class USeagullGameInstance;
 class USeagullHorizonManager;
 class USeagullAudioManager;
 class USeagullEnemySpawner;
+class USeagullGameOverScreen;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnScreenChanged, ESeagullGameScreen, NewScreen);
 
@@ -46,11 +47,19 @@ public:
 	UPROPERTY()
 	USeagullEnemySpawner* EnemySpawner = nullptr;
 
+	// Cached for async rank update after score submission
+	UPROPERTY()
+	USeagullGameOverScreen* CachedGameOverWidget = nullptr;
+
 private:
 	ESeagullGameScreen CurrentScreen = ESeagullGameScreen::Title;
+	float SurvivalScoreAccumulator = 0.f;
 
 	USeagullGameInstance* GetSeagullGameInstance() const;
 	USeagullHorizonManager* GetHorizonManager() const;
 
 	void CleanupRunActors();
+
+	UFUNCTION()
+	void OnLevelUpTriggered();
 };

@@ -1,4 +1,5 @@
 #include "UI/SeagullTitleScreen.h"
+#include "UI/SeagullEmailAuthForm.h"
 #include "Core/SeagullGameInstance.h"
 #include "Core/SeagullStormGameMode.h"
 #include "Horizon/SeagullHorizonManager.h"
@@ -48,14 +49,28 @@ void USeagullTitleScreen::OnGoogleClicked()
 
 void USeagullTitleScreen::OnEmailClicked()
 {
-	// Would show email auth form overlay
-	UE_LOG(LogSeagullStorm, Log, TEXT("Email sign-in clicked -- would show email form"));
+	APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
+	if (!PC) return;
+
+	USeagullEmailAuthForm* Form = CreateWidget<USeagullEmailAuthForm>(PC);
+	if (Form)
+	{
+		Form->bRegisterMode = false;
+		Form->AddToViewport(100);
+	}
 }
 
 void USeagullTitleScreen::OnRegisterClicked()
 {
-	// Would show registration form overlay
-	UE_LOG(LogSeagullStorm, Log, TEXT("Register clicked -- would show registration form"));
+	APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
+	if (!PC) return;
+
+	USeagullEmailAuthForm* Form = CreateWidget<USeagullEmailAuthForm>(PC);
+	if (Form)
+	{
+		Form->bRegisterMode = true;
+		Form->AddToViewport(100);
+	}
 }
 
 void USeagullTitleScreen::OnAuthSuccess()

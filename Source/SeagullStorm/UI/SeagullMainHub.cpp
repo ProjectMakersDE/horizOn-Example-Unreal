@@ -1,11 +1,16 @@
 #include "UI/SeagullMainHub.h"
+#include "UI/SeagullGiftCodePanel.h"
+#include "UI/SeagullFeedbackForm.h"
+#include "UI/SeagullSettingsPanel.h"
 #include "Core/SeagullGameInstance.h"
 #include "Core/SeagullStormGameMode.h"
+#include "Audio/SeagullAudioManager.h"
 #include "Horizon/SeagullHorizonManager.h"
 #include "Data/SeagullConfigCache.h"
 #include "Data/SeagullSaveData.h"
 #include "Components/Button.h"
 #include "Components/TextBlock.h"
+#include "Components/VerticalBox.h"
 #include "Kismet/GameplayStatics.h"
 #include "SeagullStorm.h"
 
@@ -63,19 +68,35 @@ void USeagullMainHub::LoadHubData()
 	}
 
 	// 3. Load Leaderboard Top 10
-	HM->GetTop(10, [](bool bSuccess, const TArray<FHorizonLeaderboardEntry>& Entries)
+	HM->GetTop(10, [this](bool bSuccess, const TArray<FHorizonLeaderboardEntry>& Entries)
 	{
-		if (bSuccess)
+		if (bSuccess && LeaderboardBox)
 		{
+			LeaderboardBox->ClearChildren();
+			for (const FHorizonLeaderboardEntry& Entry : Entries)
+			{
+				UTextBlock* Row = NewObject<UTextBlock>(this);
+				Row->SetText(FText::FromString(
+					FString::Printf(TEXT("#%d  %s  %lld"), Entry.Position, *Entry.Username, Entry.Score)));
+				LeaderboardBox->AddChildToVerticalBox(Row);
+			}
 			UE_LOG(LogSeagullStorm, Log, TEXT("Leaderboard loaded: %d entries"), Entries.Num());
 		}
 	});
 
 	// 4. Load News
-	HM->LoadNews(5, TEXT("en"), [](bool bSuccess, const TArray<FHorizonNewsEntry>& Entries)
+	HM->LoadNews(5, TEXT("en"), [this](bool bSuccess, const TArray<FHorizonNewsEntry>& Entries)
 	{
-		if (bSuccess)
+		if (bSuccess && NewsBox)
 		{
+			NewsBox->ClearChildren();
+			for (const FHorizonNewsEntry& Entry : Entries)
+			{
+				UTextBlock* Row = NewObject<UTextBlock>(this);
+				Row->SetText(FText::FromString(
+					FString::Printf(TEXT("[%s] %s"), *Entry.ReleaseDate, *Entry.Title)));
+				NewsBox->AddChildToVerticalBox(Row);
+			}
 			UE_LOG(LogSeagullStorm, Log, TEXT("News loaded: %d entries"), Entries.Num());
 		}
 	});
@@ -108,17 +129,29 @@ void USeagullMainHub::OnPlayClicked()
 
 void USeagullMainHub::OnGiftCodeClicked()
 {
-	UE_LOG(LogSeagullStorm, Log, TEXT("Gift Code panel requested"));
+	APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
+	if (!PC) return;
+
+	USeagullGiftCodePanel* Panel = CreateWidget<USeagullGiftCodePanel>(PC);
+	if (Panel) Panel->AddToViewport(100);
 }
 
 void USeagullMainHub::OnFeedbackClicked()
 {
-	UE_LOG(LogSeagullStorm, Log, TEXT("Feedback form requested"));
+	APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
+	if (!PC) return;
+
+	USeagullFeedbackForm* Form = CreateWidget<USeagullFeedbackForm>(PC);
+	if (Form) Form->AddToViewport(100);
 }
 
 void USeagullMainHub::OnSettingsClicked()
 {
-	UE_LOG(LogSeagullStorm, Log, TEXT("Settings panel requested"));
+	APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
+	if (!PC) return;
+
+	USeagullSettingsPanel* Panel = CreateWidget<USeagullSettingsPanel>(PC);
+	if (Panel) Panel->AddToViewport(100);
 }
 
 void USeagullMainHub::OnBuySpeed() { TryBuyUpgrade(TEXT("speed")); }
@@ -151,6 +184,13 @@ void USeagullMainHub::TryBuyUpgrade(const FString& Key)
 	GI->SaveData.Upgrades.FindOrAdd(Key) = CurrentLevel + 1;
 
 	UE_LOG(LogSeagullStorm, Log, TEXT("Bought %s upgrade: level %d -> %d (cost %d)"), *Key, CurrentLevel, CurrentLevel + 1, Cost);
+
+	// Play upgrade SFX
+	ASeagullStormGameMode* GM = Cast<ASeagullStormGameMode>(UGameplayStatics::GetGameMode(GetWorld()));
+	if (GM && GM->AudioManager && GM->AudioManager->SFX_UpgradeSelect)
+	{
+		GM->AudioManager->PlaySFX(GM->AudioManager->SFX_UpgradeSelect, GetWorld());
+	}
 
 	RefreshDisplay();
 }

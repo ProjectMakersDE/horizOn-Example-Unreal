@@ -6,6 +6,7 @@
 
 class UButton;
 class UTextBlock;
+class UVerticalBox;
 
 UCLASS()
 class USeagullMainHub : public UUserWidget
@@ -33,6 +34,12 @@ protected:
 
 	UPROPERTY(meta = (BindWidgetOptional))
 	UTextBlock* HighscoreText = nullptr;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UVerticalBox* LeaderboardBox = nullptr;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UVerticalBox* NewsBox = nullptr;
 
 private:
 	UFUNCTION()

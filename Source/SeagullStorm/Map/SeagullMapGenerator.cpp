@@ -2,6 +2,7 @@
 #include "Core/SeagullTypes.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
+#include "Materials/MaterialInstanceDynamic.h"
 #include "SeagullStorm.h"
 
 ASeagullMapGenerator::ASeagullMapGenerator()
@@ -53,8 +54,28 @@ void ASeagullMapGenerator::GenerateArena()
 
 void ASeagullMapGenerator::SpawnGroundTile(const FVector& Position, const FLinearColor& Color)
 {
-	// In a full implementation, these would be PaperSprite instances.
-	// For the SDK example, the ground is represented by the background color.
-	// The actual visual tiles would be created via Paper2D tile maps in the editor.
-	// This placeholder tracks the arena bounds for gameplay logic.
+	// Spawn a simple static mesh plane scaled to tile size for arena visualization
+	UStaticMeshComponent* Tile = NewObject<UStaticMeshComponent>(this);
+	if (!Tile) return;
+
+	Tile->SetupAttachment(RootComponent);
+	Tile->RegisterComponent();
+	Tile->SetWorldLocation(Position);
+	Tile->SetWorldScale3D(FVector(0.16f, 0.16f, 1.f)); // Scale default 100cm plane to 16cm
+
+	// Use engine's default plane mesh
+	static UStaticMesh* PlaneMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Plane.Plane"));
+	if (PlaneMesh)
+	{
+		Tile->SetStaticMesh(PlaneMesh);
+	}
+
+	// Create and set colored material
+	UMaterialInstanceDynamic* Mat = UMaterialInstanceDynamic::Create(
+		Tile->GetMaterial(0), this);
+	if (Mat)
+	{
+		Mat->SetVectorParameterValue(TEXT("BaseColor"), Color);
+		Tile->SetMaterial(0, Mat);
+	}
 }
