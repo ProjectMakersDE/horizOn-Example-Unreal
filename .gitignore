@@ -1,0 +1,27 @@
+# Unreal Engine
+Binaries/
+Intermediate/
+Saved/
+DerivedDataCache/
+Build/
+.vs/
+.vsconfig
+*.sln
+*.suo
+*.opensdf
+*.sdf
+*.VC.db
+*.VC.opendb
+
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+*.swp
+*.swo
+*~
+
+# Compiled assets
+*.uasset
+*.umap

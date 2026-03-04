@@ -1,0 +1,37 @@
+{
+    "FileVersion": 3,
+    "Version": 1,
+    "VersionName": "1.2.1",
+    "FriendlyName": "horizOn SDK",
+    "Description": "horizOn Backend SDK for Unreal Engine. Provides authentication, cloud saves, leaderboards, remote config, news, gift codes, feedback, and server-side logging.",
+    "Category": "Networking",
+    "CreatedBy": "ProjectMakers",
+    "CreatedByURL": "https://horizon.pm",
+    "DocsURL": "https://horizon.pm/docs",
+    "MarketplaceURL": "",
+    "SupportURL": "https://horizon.pm/support",
+    "CanContainContent": true,
+    "IsBetaVersion": false,
+    "IsExperimentalVersion": false,
+    "EnabledByDefault": false,
+    "EngineVersion": "5.5.0",
+    "SupportedTargetPlatforms": [
+        "Win64",
+        "Mac",
+        "Linux",
+        "Android",
+        "IOS"
+    ],
+    "Modules": [
+        {
+            "Name": "HorizonSDK",
+            "Type": "Runtime",
+            "LoadingPhase": "Default"
+        },
+        {
+            "Name": "HorizonSDKEditor",
+            "Type": "Editor",
+            "LoadingPhase": "Default"
+        }
+    ]
+}
