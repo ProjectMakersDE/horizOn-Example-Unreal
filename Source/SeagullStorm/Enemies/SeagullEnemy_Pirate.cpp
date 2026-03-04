@@ -16,14 +16,14 @@ void ASeagullEnemy_Pirate::MoveTowardPlayer(float DeltaTime)
 	AActor* Player = GetPlayerPawn();
 	if (!Player) return;
 
-	// Zigzag evasive movement
-	ZigzagTimer += DeltaTime * 3.f;
+	// Zigzag evasive movement — pronounced lateral dodges
+	ZigzagTimer += DeltaTime * 4.f;
 	ZigzagOffset = FMath::Sin(ZigzagTimer) * 30.f;
 
 	FVector ToPlayer = (Player->GetActorLocation() - GetActorLocation()).GetSafeNormal();
 	FVector Perpendicular(-ToPlayer.Y, ToPlayer.X, 0.f);
 
-	FVector Dir = ToPlayer + Perpendicular * (ZigzagOffset / 30.f) * 0.3f;
+	FVector Dir = ToPlayer + Perpendicular * (ZigzagOffset / 30.f) * 0.5f;
 	Dir.Normalize();
 
 	FVector NewLoc = GetActorLocation() + Dir * MoveSpeed * DeltaTime;

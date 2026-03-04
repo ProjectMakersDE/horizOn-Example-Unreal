@@ -46,6 +46,13 @@ void USeagullGameOverScreen::SetRank(int32 Rank)
 	{
 		RankText->SetText(FText::FromString(FString::Printf(TEXT("Rank: #%d"), Rank)));
 	}
+
+	// Update Best text to include rank
+	USeagullGameInstance* GI = Cast<USeagullGameInstance>(UGameplayStatics::GetGameInstance(GetWorld()));
+	if (BestText && GI)
+	{
+		BestText->SetText(FText::FromString(FString::Printf(TEXT("Best: %d (#%d)"), GI->SaveData.Highscore, Rank)));
+	}
 }
 
 void USeagullGameOverScreen::OnPlayAgainClicked()

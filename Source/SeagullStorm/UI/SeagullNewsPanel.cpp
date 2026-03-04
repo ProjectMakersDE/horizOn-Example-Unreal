@@ -19,11 +19,19 @@ void USeagullNewsPanel::LoadNews()
 	USeagullGameInstance* GI = Cast<USeagullGameInstance>(UGameplayStatics::GetGameInstance(GetWorld()));
 	if (!GI) return;
 
-	// Read from cache — zero network requests during run
-	for (const FHorizonNewsEntry& Entry : GI->CachedNews)
+	// Populate NewsList widget from cache — zero network requests during run
+	if (NewsList)
 	{
-		UE_LOG(LogSeagullStorm, Log, TEXT("News: %s (%s)"), *Entry.Title, *Entry.ReleaseDate);
+		NewsList->ClearChildren();
+		for (const FHorizonNewsEntry& Entry : GI->CachedNews)
+		{
+			UTextBlock* Row = NewObject<UTextBlock>(this);
+			Row->SetText(FText::FromString(
+				FString::Printf(TEXT("[%s] %s"), *Entry.ReleaseDate, *Entry.Title)));
+			NewsList->AddChildToVerticalBox(Row);
+		}
 	}
+	UE_LOG(LogSeagullStorm, Log, TEXT("News panel loaded: %d entries"), GI->CachedNews.Num());
 }
 
 void USeagullNewsPanel::OnCloseClicked()

@@ -43,7 +43,7 @@ void USeagullPauseMenu::OnFeedbackClicked()
 
 void USeagullPauseMenu::OnQuitClicked()
 {
-	// Quit counts as death for scoring
+	// Voluntary quit — does not count as a death
 	ASeagullStormGameMode* GM = Cast<ASeagullStormGameMode>(UGameplayStatics::GetGameMode(GetWorld()));
 	if (GM)
 	{
@@ -52,6 +52,6 @@ void USeagullPauseMenu::OnQuitClicked()
 		{
 			PC->SetPause(false);
 		}
-		GM->EndRun(true);
+		GM->EndRun(false);
 	}
 }

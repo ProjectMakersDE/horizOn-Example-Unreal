@@ -4,6 +4,7 @@
 #include "Player/SeagullHealthComponent.h"
 #include "Player/SeagullXPComponent.h"
 #include "Weapons/SeagullWeaponManager.h"
+#include "Weapons/SeagullWeaponBase.h"
 #include "GameFramework/FloatingPawnMovement.h"
 #include "SeagullStorm.h"
 #include "Kismet/GameplayStatics.h"
@@ -59,7 +60,7 @@ void ASeagullStormGameState::AddKill()
 {
 	KillCount++;
 	RunStats.Kills = KillCount;
-	AddScore(10); // Base score per kill
+	AddScore(1); // 1 point per kill (Score = kills + XP collected + survival time)
 }
 
 void ASeagullStormGameState::AddXP(int32 Amount)
@@ -195,6 +196,14 @@ void ASeagullStormGameState::ApplyLevelUpChoice(const FSeagullLevelUpChoice& Cho
 		if (WM)
 		{
 			WM->UpgradeWeapon(WType);
+
+			// feather_speed: reduce cooldown by 20% (fire rate +20%)
+			// Generic upgrades: Level++ handled by GetEffectiveDamage (+15% per level)
+			if (Choice.Id == TEXT("feather_speed"))
+			{
+				USeagullWeaponBase* Weapon = WM->GetWeapon(WType);
+				if (Weapon) Weapon->Cooldown *= 0.8f;
+			}
 		}
 	}
 	else if (Choice.Type == TEXT("stat_boost"))

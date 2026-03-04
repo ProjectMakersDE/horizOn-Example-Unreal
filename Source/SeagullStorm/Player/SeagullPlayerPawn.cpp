@@ -119,6 +119,7 @@ void ASeagullPlayerPawn::ApplyUpgrades()
 	// Damage multiplier applied in weapon manager
 	float DamageMult = Config->GetUpgradeValue(TEXT("damage"), GI->SaveData.GetUpgradeLevel(TEXT("damage")));
 	WeaponManager->DamageMultiplier = DamageMult;
+	WeaponManager->UpdateDamageMultipliers();
 }
 
 void ASeagullPlayerPawn::OnDeath()

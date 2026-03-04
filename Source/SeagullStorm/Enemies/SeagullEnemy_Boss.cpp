@@ -18,6 +18,49 @@ ASeagullEnemy_Boss::ASeagullEnemy_Boss()
 	}
 }
 
+void ASeagullEnemy_Boss::MoveTowardPlayer(float DeltaTime)
+{
+	AActor* Player = GetPlayerPawn();
+	if (!Player) return;
+
+	if (bIsCharging)
+	{
+		// Dash in the locked charge direction at high speed
+		ChargeElapsed += DeltaTime;
+		FVector NewLoc = GetActorLocation() + ChargeDirection * MoveSpeed * ChargeSpeedMultiplier * DeltaTime;
+		SetActorLocation(NewLoc);
+
+		if (ChargeElapsed >= ChargeDuration)
+		{
+			bIsCharging = false;
+			ChargeTimer = 0.f;
+		}
+	}
+	else
+	{
+		// Slow movement toward player
+		FVector ToPlayer = (Player->GetActorLocation() - GetActorLocation()).GetSafeNormal();
+		FVector NewLoc = GetActorLocation() + ToPlayer * MoveSpeed * DeltaTime;
+		SetActorLocation(NewLoc);
+
+		// Flip sprite based on horizontal direction toward player
+		if (SpriteComponent)
+		{
+			float FlipScale = (ToPlayer.X < 0.0f) ? -1.0f : 1.0f;
+			SpriteComponent->SetRelativeScale3D(FVector(FlipScale, 1.0f, 1.0f));
+		}
+
+		// Count down to next charge
+		ChargeTimer += DeltaTime;
+		if (ChargeTimer >= ChargeCooldown)
+		{
+			bIsCharging = true;
+			ChargeElapsed = 0.f;
+			ChargeDirection = ToPlayer;
+		}
+	}
+}
+
 void ASeagullEnemy_Boss::OnDeath()
 {
 	UE_LOG(LogSeagullStorm, Log, TEXT("Boss defeated!"));

@@ -9,6 +9,10 @@
 #include "Map/SeagullMapGenerator.h"
 #include "Weapons/SeagullWeaponManager.h"
 #include "Weapons/SeagullWeaponBase.h"
+#include "Weapons/SeagullWeapon_Feather.h"
+#include "Weapons/SeagullWeapon_Screech.h"
+#include "Weapons/SeagullWeapon_Dive.h"
+#include "Weapons/SeagullWeapon_Gust.h"
 #include "Data/SeagullConfigCache.h"
 #include "UI/SeagullGameOverScreen.h"
 #include "SeagullStorm.h"
@@ -121,8 +125,8 @@ void ASeagullStormGameMode::Tick(float DeltaTime)
 			}
 		}
 
-		// Tick enemy spawner
-		if (EnemySpawner)
+		// Tick enemy spawner — stop spawning after timer expires / boss phase
+		if (EnemySpawner && GS && !GS->bBossSpawned && !GS->IsTimerExpired())
 		{
 			EnemySpawner->Tick(DeltaTime, GetWorld());
 		}
@@ -234,17 +238,40 @@ void ASeagullStormGameMode::StartRun()
 			if (GI && GI->GetConfigCache() && Pawn->WeaponManager)
 			{
 				USeagullConfigCache* Config = GI->GetConfigCache();
-				USeagullWeaponBase* Feather = Pawn->WeaponManager->GetWeapon(ESeagullWeaponType::Feather);
-				if (Feather) Feather->SetStats(Config->FeatherStats.Damage, Config->FeatherStats.Cooldown);
+				USeagullWeaponBase* FeatherBase = Pawn->WeaponManager->GetWeapon(ESeagullWeaponType::Feather);
+				if (FeatherBase)
+				{
+					FeatherBase->SetStats(Config->FeatherStats.Damage, Config->FeatherStats.Cooldown);
+					USeagullWeapon_Feather* Feather = Cast<USeagullWeapon_Feather>(FeatherBase);
+					if (Feather) Feather->ProjectileCount = Config->FeatherStats.Projectiles;
+				}
 
-				USeagullWeaponBase* Screech = Pawn->WeaponManager->GetWeapon(ESeagullWeaponType::Screech);
-				if (Screech) Screech->SetStats(Config->ScreechStats.Damage, Config->ScreechStats.Cooldown);
+				USeagullWeaponBase* ScreechBase = Pawn->WeaponManager->GetWeapon(ESeagullWeaponType::Screech);
+				if (ScreechBase)
+				{
+					ScreechBase->SetStats(Config->ScreechStats.Damage, Config->ScreechStats.Cooldown);
+					USeagullWeapon_Screech* Screech = Cast<USeagullWeapon_Screech>(ScreechBase);
+					if (Screech) Screech->Radius = Config->ScreechStats.Range;
+				}
 
-				USeagullWeaponBase* Dive = Pawn->WeaponManager->GetWeapon(ESeagullWeaponType::Dive);
-				if (Dive) Dive->SetStats(Config->DiveStats.Damage, Config->DiveStats.Cooldown);
+				USeagullWeaponBase* DiveBase = Pawn->WeaponManager->GetWeapon(ESeagullWeaponType::Dive);
+				if (DiveBase)
+				{
+					DiveBase->SetStats(Config->DiveStats.Damage, Config->DiveStats.Cooldown);
+					USeagullWeapon_Dive* Dive = Cast<USeagullWeapon_Dive>(DiveBase);
+					if (Dive) Dive->Range = Config->DiveStats.Range;
+				}
 
-				USeagullWeaponBase* Gust = Pawn->WeaponManager->GetWeapon(ESeagullWeaponType::Gust);
-				if (Gust) Gust->SetStats(Config->GustStats.Damage, Config->GustStats.Cooldown);
+				USeagullWeaponBase* GustBase = Pawn->WeaponManager->GetWeapon(ESeagullWeaponType::Gust);
+				if (GustBase)
+				{
+					GustBase->SetStats(Config->GustStats.Damage, Config->GustStats.Cooldown);
+					USeagullWeapon_Gust* Gust = Cast<USeagullWeapon_Gust>(GustBase);
+					if (Gust) Gust->KnockbackForce = Config->GustStats.Knockback;
+				}
+
+				// Store config in WeaponManager for mid-run unlocks
+				Pawn->WeaponManager->ConfigCacheRef = Config;
 			}
 		}
 	}
@@ -298,17 +325,34 @@ void ASeagullStormGameMode::EndRun(bool bPlayerDied)
 			// Submit score first, then fetch rank in callback (Fix 5)
 			HM->SubmitScore(static_cast<int64>(GS->CurrentScore), [this, HM](bool bScoreSuccess)
 			{
-				// After score is submitted, fetch rank
-				HM->GetRank([this](bool bRankSuccess, const FHorizonLeaderboardEntry& Entry)
+				if (bScoreSuccess)
 				{
-					if (bRankSuccess && CachedGameOverWidget)
+					// After score is submitted, fetch rank
+					HM->GetRank([this](bool bRankSuccess, const FHorizonLeaderboardEntry& Entry)
 					{
-						CachedGameOverWidget->SetRank(Entry.Position);
-					}
-				});
+						if (bRankSuccess && CachedGameOverWidget)
+						{
+							CachedGameOverWidget->SetRank(Entry.Position);
+						}
+					});
+				}
+				else if (HM)
+				{
+					HM->RecordException(
+						TEXT("SubmitScore failed"),
+						TEXT("SubmitScore returned bSuccess=false at EndRun"));
+				}
 			});
 
-			HM->SaveData(GI->SaveData.ToJsonString(), [](bool) {});
+			HM->SaveData(GI->SaveData.ToJsonString(), [HM](bool bSaveSuccess)
+			{
+				if (!bSaveSuccess && HM)
+				{
+					HM->RecordException(
+						TEXT("SaveData failed"),
+						TEXT("CloudSave SaveData returned bSuccess=false at EndRun"));
+				}
+			});
 
 			// User log
 			FString LogMsg = FString::Printf(
@@ -323,6 +367,12 @@ void ASeagullStormGameMode::EndRun(bool bPlayerDied)
 				CoinsEarned);
 			HM->LogInfo(LogMsg);
 		}
+	}
+
+	// Mark run as inactive so timer/spawner stop
+	if (GS)
+	{
+		GS->bRunActive = false;
 	}
 
 	SurvivalScoreAccumulator = 0.f;

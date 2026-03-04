@@ -29,6 +29,10 @@ void USeagullEnemySpawner::Tick(float DeltaTime, UWorld* World)
 {
 	if (!World) return;
 
+	// Stop spawning new waves once timer has expired (boss fight phase)
+	ASeagullStormGameState* GS = World->GetGameState<ASeagullStormGameState>();
+	if (GS && GS->IsTimerExpired()) return;
+
 	WaveTimer += DeltaTime;
 	if (WaveTimer >= WaveInterval)
 	{

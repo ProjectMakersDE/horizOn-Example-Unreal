@@ -31,5 +31,5 @@ protected:
 	bool bUnlocked = false;
 	float CooldownTimer = 0.f;
 
-	float GetEffectiveDamage() const { return Damage * DamageMultiplier; }
+	float GetEffectiveDamage() const { return Damage * DamageMultiplier * (1.0f + (Level - 1) * 0.15f); }
 };

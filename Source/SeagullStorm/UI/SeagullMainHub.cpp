@@ -39,13 +39,22 @@ void USeagullMainHub::LoadHubData()
 	// 1. Load Remote Config
 	if (!GI->bConfigLoaded)
 	{
-		HM->LoadAllConfigs([GI](bool bSuccess, const TMap<FString, FString>& Configs)
+		HM->LoadAllConfigs([GI, HM](bool bSuccess, const TMap<FString, FString>& Configs)
 		{
 			if (bSuccess)
 			{
 				GI->GetConfigCache()->ParseFromConfigs(Configs);
 				GI->bConfigLoaded = true;
 				UE_LOG(LogSeagullStorm, Log, TEXT("Remote Config loaded: %d keys"), Configs.Num());
+			}
+			else
+			{
+				if (HM)
+				{
+					HM->RecordException(
+						TEXT("Remote Config load failed"),
+						TEXT("LoadAllConfigs returned bSuccess=false"));
+				}
 			}
 		});
 	}
@@ -87,7 +96,7 @@ void USeagullMainHub::LoadHubData()
 	}
 
 	// 3. Load Leaderboard Top 10
-	HM->GetTop(10, [this](bool bSuccess, const TArray<FHorizonLeaderboardEntry>& Entries)
+	HM->GetTop(10, [this, HM](bool bSuccess, const TArray<FHorizonLeaderboardEntry>& Entries)
 	{
 		if (bSuccess && LeaderboardBox)
 		{
@@ -100,6 +109,12 @@ void USeagullMainHub::LoadHubData()
 				LeaderboardBox->AddChildToVerticalBox(Row);
 			}
 			UE_LOG(LogSeagullStorm, Log, TEXT("Leaderboard loaded: %d entries"), Entries.Num());
+		}
+		else if (!bSuccess && HM)
+		{
+			HM->RecordException(
+				TEXT("Leaderboard GetTop failed"),
+				TEXT("GetTop returned bSuccess=false"));
 		}
 	});
 

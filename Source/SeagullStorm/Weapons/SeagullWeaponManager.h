@@ -10,6 +10,7 @@ class USeagullWeapon_Feather;
 class USeagullWeapon_Screech;
 class USeagullWeapon_Dive;
 class USeagullWeapon_Gust;
+class USeagullConfigCache;
 
 UCLASS()
 class USeagullWeaponManager : public UActorComponent
@@ -27,6 +28,12 @@ public:
 
 	float DamageMultiplier = 1.0f;
 
+	void UpdateDamageMultipliers();
+
+	// Config reference for applying stats to weapons unlocked mid-run
+	UPROPERTY()
+	USeagullConfigCache* ConfigCacheRef = nullptr;
+
 private:
 	UPROPERTY()
 	USeagullWeapon_Feather* FeatherWeapon = nullptr;
@@ -39,6 +46,4 @@ private:
 
 	UPROPERTY()
 	USeagullWeapon_Gust* GustWeapon = nullptr;
-
-	void UpdateDamageMultipliers();
 };

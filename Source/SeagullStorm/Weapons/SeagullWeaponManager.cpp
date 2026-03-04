@@ -3,6 +3,7 @@
 #include "Weapons/SeagullWeapon_Screech.h"
 #include "Weapons/SeagullWeapon_Dive.h"
 #include "Weapons/SeagullWeapon_Gust.h"
+#include "Data/SeagullConfigCache.h"
 #include "SeagullStorm.h"
 
 USeagullWeaponManager::USeagullWeaponManager()
@@ -40,6 +41,45 @@ void USeagullWeaponManager::UnlockWeapon(ESeagullWeaponType Type)
 	if (Weapon)
 	{
 		Weapon->Unlock();
+
+		// Apply config stats so mid-run unlocks use Remote Config values
+		if (ConfigCacheRef)
+		{
+			switch (Type)
+			{
+				case ESeagullWeaponType::Feather:
+				{
+					Weapon->SetStats(ConfigCacheRef->FeatherStats.Damage, ConfigCacheRef->FeatherStats.Cooldown);
+					USeagullWeapon_Feather* F = Cast<USeagullWeapon_Feather>(Weapon);
+					if (F) F->ProjectileCount = ConfigCacheRef->FeatherStats.Projectiles;
+					break;
+				}
+				case ESeagullWeaponType::Screech:
+				{
+					Weapon->SetStats(ConfigCacheRef->ScreechStats.Damage, ConfigCacheRef->ScreechStats.Cooldown);
+					USeagullWeapon_Screech* S = Cast<USeagullWeapon_Screech>(Weapon);
+					if (S) S->Radius = ConfigCacheRef->ScreechStats.Range;
+					break;
+				}
+				case ESeagullWeaponType::Dive:
+				{
+					Weapon->SetStats(ConfigCacheRef->DiveStats.Damage, ConfigCacheRef->DiveStats.Cooldown);
+					USeagullWeapon_Dive* D = Cast<USeagullWeapon_Dive>(Weapon);
+					if (D) D->Range = ConfigCacheRef->DiveStats.Range;
+					break;
+				}
+				case ESeagullWeaponType::Gust:
+				{
+					Weapon->SetStats(ConfigCacheRef->GustStats.Damage, ConfigCacheRef->GustStats.Cooldown);
+					USeagullWeapon_Gust* G = Cast<USeagullWeapon_Gust>(Weapon);
+					if (G) G->KnockbackForce = ConfigCacheRef->GustStats.Knockback;
+					break;
+				}
+			}
+		}
+
+		// Apply damage multiplier to newly unlocked weapon
+		Weapon->DamageMultiplier = DamageMultiplier;
 	}
 }
 
