@@ -21,6 +21,7 @@ void USeagullTitleScreen::NativeConstruct()
 
 	if (GuestButton) GuestButton->OnClicked.AddDynamic(this, &USeagullTitleScreen::OnGuestClicked);
 	if (GoogleButton) GoogleButton->OnClicked.AddDynamic(this, &USeagullTitleScreen::OnGoogleClicked);
+	if (AppleButton) AppleButton->OnClicked.AddDynamic(this, &USeagullTitleScreen::OnAppleClicked);
 	if (EmailButton) EmailButton->OnClicked.AddDynamic(this, &USeagullTitleScreen::OnEmailClicked);
 	if (RegisterButton) RegisterButton->OnClicked.AddDynamic(this, &USeagullTitleScreen::OnRegisterClicked);
 }
@@ -82,6 +83,49 @@ void USeagullTitleScreen::OnGoogleClicked()
 		else
 		{
 			UE_LOG(LogSeagullStorm, Warning, TEXT("Google sign-in not available on this platform"));
+		}
+	}
+}
+
+void USeagullTitleScreen::OnAppleClicked()
+{
+	USeagullGameInstance* GI = Cast<USeagullGameInstance>(UGameplayStatics::GetGameInstance(GetWorld()));
+	if (!GI) return;
+
+	UHorizonSubsystem* Subsystem = GI->GetHorizonSubsystem();
+	if (Subsystem && Subsystem->Auth)
+	{
+		// Drop-in Apple flow -- native sheet on iOS, no-op fallback on other platforms.
+		// On non-iOS the SDK logs a warning and reports failure, which we surface to the user.
+		Subsystem->Auth->SignInWithApple(FOnAuthComplete::CreateLambda(
+			[this](bool bSuccess)
+			{
+				if (bSuccess)
+				{
+					OnAuthSuccess();
+				}
+				else
+				{
+					if (StatusText)
+					{
+						StatusText->SetText(FText::FromString(TEXT("Apple sign-in is not available on this platform")));
+					}
+					else
+					{
+						UE_LOG(LogSeagullStorm, Warning, TEXT("Apple sign-in not available on this platform"));
+					}
+				}
+			}));
+	}
+	else
+	{
+		if (StatusText)
+		{
+			StatusText->SetText(FText::FromString(TEXT("Apple sign-in is not available on this platform")));
+		}
+		else
+		{
+			UE_LOG(LogSeagullStorm, Warning, TEXT("Apple sign-in not available on this platform"));
 		}
 	}
 }

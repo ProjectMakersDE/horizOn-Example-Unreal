@@ -33,6 +33,9 @@ protected:
 	UButton* GoogleButton = nullptr;
 
 	UPROPERTY(meta = (BindWidgetOptional))
+	UButton* AppleButton = nullptr;
+
+	UPROPERTY(meta = (BindWidgetOptional))
 	UButton* EmailButton = nullptr;
 
 	UPROPERTY(meta = (BindWidgetOptional))
@@ -47,6 +50,9 @@ private:
 
 	UFUNCTION()
 	void OnGoogleClicked();
+
+	UFUNCTION()
+	void OnAppleClicked();
 
 	UFUNCTION()
 	void OnEmailClicked();
