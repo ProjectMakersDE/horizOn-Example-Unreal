@@ -198,8 +198,10 @@ void ASeagullStormGameMode::StartRun()
 	{
 		GS->InitRun(GI ? GI->GetConfigCache() : nullptr);
 
-		// Bind level-up trigger (Fix 10)
-		GS->OnTriggerLevelUpChoices.AddDynamic(this, &ASeagullStormGameMode::OnLevelUpTriggered);
+		// Bind level-up trigger (Fix 10). AddUnique: the GameState persists across
+		// runs, so a plain AddDynamic here would stack one binding per run and fire
+		// OnLevelUpTriggered multiple times per level-up.
+		GS->OnTriggerLevelUpChoices.AddUniqueDynamic(this, &ASeagullStormGameMode::OnLevelUpTriggered);
 	}
 
 	// Reset enemy spawner
@@ -418,6 +420,7 @@ void ASeagullStormGameMode::OnLevelUpTriggered()
 	{
 		HM->RecordBreadcrumb(TEXT("state"), FString::Printf(TEXT("level_%d"), GS->CurrentLevel));
 		HM->SetCrashCustomKey(TEXT("level"), FString::FromInt(GS->CurrentLevel));
+		HM->SetCrashCustomKey(TEXT("score"), FString::FromInt(GS->CurrentScore));
 	}
 
 	// Play level-up SFX (Fix 6)

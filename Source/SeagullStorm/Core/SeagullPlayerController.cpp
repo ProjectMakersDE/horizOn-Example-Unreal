@@ -6,6 +6,7 @@
 #include "UI/SeagullGameOverScreen.h"
 #include "UI/SeagullPauseMenu.h"
 #include "UI/SeagullLevelUpOverlay.h"
+#include "Blueprint/WidgetLayoutLibrary.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputMappingContext.h"
@@ -72,24 +73,17 @@ void ASeagullPlayerController::BeginPlay()
 	{
 		EIS->AddMappingContext(InputMappingContext, 0);
 	}
-}
 
-void ASeagullPlayerController::SetupInputComponent()
-{
-	Super::SetupInputComponent();
-
+	// Bind here, NOT in SetupInputComponent(): for the initial player controller
+	// SetupInputComponent() runs during login (before World BeginPlay dispatches
+	// actor BeginPlay), i.e. before the actions above exist. InputComponent is
+	// already valid at this point.
 	UEnhancedInputComponent* EIC = Cast<UEnhancedInputComponent>(InputComponent);
 	if (EIC)
 	{
-		if (MoveAction)
-		{
-			EIC->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ASeagullPlayerController::OnMoveInput);
-			EIC->BindAction(MoveAction, ETriggerEvent::Completed, this, &ASeagullPlayerController::OnMoveInput);
-		}
-		if (PauseAction)
-		{
-			EIC->BindAction(PauseAction, ETriggerEvent::Started, this, &ASeagullPlayerController::OnPauseInput);
-		}
+		EIC->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ASeagullPlayerController::OnMoveInput);
+		EIC->BindAction(MoveAction, ETriggerEvent::Completed, this, &ASeagullPlayerController::OnMoveInput);
+		EIC->BindAction(PauseAction, ETriggerEvent::Started, this, &ASeagullPlayerController::OnPauseInput);
 	}
 }
 
@@ -189,13 +183,26 @@ void ASeagullPlayerController::TogglePause()
 	}
 }
 
+void ASeagullPlayerController::RefreshHubDisplay()
+{
+	if (HubWidget)
+	{
+		HubWidget->RefreshDisplay();
+	}
+}
+
 void ASeagullPlayerController::ClearAllWidgets()
 {
-	if (TitleWidget) { TitleWidget->RemoveFromParent(); TitleWidget = nullptr; }
-	if (HubWidget) { HubWidget->RemoveFromParent(); HubWidget = nullptr; }
-	if (HUDWidget) { HUDWidget->RemoveFromParent(); HUDWidget = nullptr; }
-	if (GameOverWidget) { GameOverWidget->RemoveFromParent(); GameOverWidget = nullptr; }
-	if (PauseWidget) { PauseWidget->RemoveFromParent(); PauseWidget = nullptr; }
-	if (LevelUpWidget) { LevelUpWidget->RemoveFromParent(); LevelUpWidget = nullptr; }
+	// Removes every viewport widget: the six tracked screen widgets AND the
+	// ad-hoc modals (Settings/GiftCode/Feedback/EmailAuth/News) that are added
+	// directly via AddToViewport and would otherwise survive a screen switch
+	// (e.g. quitting a run with the news panel open).
+	UWidgetLayoutLibrary::RemoveAllWidgets(this);
+	TitleWidget = nullptr;
+	HubWidget = nullptr;
+	HUDWidget = nullptr;
+	GameOverWidget = nullptr;
+	PauseWidget = nullptr;
+	LevelUpWidget = nullptr;
 	bIsPaused = false;
 }

@@ -21,7 +21,3 @@ Build/
 *.swp
 *.swo
 *~
-
-# Compiled assets
-*.uasset
-*.umap

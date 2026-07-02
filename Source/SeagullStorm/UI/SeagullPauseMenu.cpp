@@ -1,11 +1,74 @@
 #include "UI/SeagullPauseMenu.h"
 #include "UI/SeagullNewsPanel.h"
 #include "UI/SeagullFeedbackForm.h"
+#include "UI/SeagullWidgetStyles.h"
 #include "Core/SeagullPlayerController.h"
 #include "Core/SeagullStormGameMode.h"
+#include "Core/SeagullTypes.h"
+#include "Blueprint/WidgetTree.h"
+#include "Components/Border.h"
 #include "Components/Button.h"
+#include "Components/CanvasPanel.h"
+#include "Components/CanvasPanelSlot.h"
+#include "Components/SizeBox.h"
+#include "Components/TextBlock.h"
+#include "Components/VerticalBox.h"
 #include "Kismet/GameplayStatics.h"
 #include "SeagullStorm.h"
+
+void USeagullPauseMenu::NativeOnInitialized()
+{
+	Super::NativeOnInitialized();
+
+	UCanvasPanel* RootCanvas = WidgetTree->ConstructWidget<UCanvasPanel>(UCanvasPanel::StaticClass(), TEXT("RootCanvas"));
+	WidgetTree->RootWidget = RootCanvas;
+
+	// Dim the paused gameplay behind the menu
+	FLinearColor DimColor = SeagullColors::DarkBG;
+	DimColor.A = 0.75f;
+	UBorder* Dim = SeagullWidgetStyles::MakePanel(WidgetTree, DimColor, 0.f);
+	if (UCanvasPanelSlot* DimSlot = RootCanvas->AddChildToCanvas(Dim))
+	{
+		DimSlot->SetAnchors(FAnchors(0.f, 0.f, 1.f, 1.f));
+		DimSlot->SetOffsets(FMargin(0.f));
+	}
+
+	UBorder* Panel = SeagullWidgetStyles::MakePanel(WidgetTree, SeagullColors::PanelBG, 32.f);
+	if (UCanvasPanelSlot* PanelSlot = RootCanvas->AddChildToCanvas(Panel))
+	{
+		PanelSlot->SetAnchors(FAnchors(0.5f, 0.5f));
+		PanelSlot->SetAlignment(FVector2D(0.5f, 0.5f));
+		PanelSlot->SetAutoSize(true);
+	}
+
+	USizeBox* ColumnSize = WidgetTree->ConstructWidget<USizeBox>(USizeBox::StaticClass());
+	ColumnSize->SetWidthOverride(520.f);
+	Panel->AddChild(ColumnSize);
+
+	UVerticalBox* Column = WidgetTree->ConstructWidget<UVerticalBox>(UVerticalBox::StaticClass());
+	ColumnSize->AddChild(Column);
+
+	UTextBlock* Heading = SeagullWidgetStyles::MakeText(WidgetTree, TEXT("PAUSED"),
+		SeagullWidgetStyles::TitleFontSize, SeagullColors::Orange);
+	Heading->SetJustification(ETextJustify::Center);
+	SeagullWidgetStyles::AddRow(Column, Heading, 12.f);
+
+	ResumeButton = SeagullWidgetStyles::MakeTextButton(WidgetTree, TEXT("Resume"),
+		SeagullColors::Orange, SeagullColors::DarkText, SeagullWidgetStyles::TextFontSize, TEXT("ResumeButton"));
+	SeagullWidgetStyles::AddRow(Column, ResumeButton);
+
+	NewsButton = SeagullWidgetStyles::MakeTextButton(WidgetTree, TEXT("News"),
+		SeagullColors::Teal, SeagullColors::LightText, SeagullWidgetStyles::TextFontSize, TEXT("NewsButton"));
+	SeagullWidgetStyles::AddRow(Column, NewsButton);
+
+	FeedbackButton = SeagullWidgetStyles::MakeTextButton(WidgetTree, TEXT("Feedback"),
+		SeagullColors::Teal, SeagullColors::LightText, SeagullWidgetStyles::TextFontSize, TEXT("FeedbackButton"));
+	SeagullWidgetStyles::AddRow(Column, FeedbackButton);
+
+	QuitButton = SeagullWidgetStyles::MakeTextButton(WidgetTree, TEXT("Quit Run"),
+		SeagullColors::Teal, SeagullColors::LightText, SeagullWidgetStyles::TextFontSize, TEXT("QuitButton"));
+	SeagullWidgetStyles::AddRow(Column, QuitButton);
+}
 
 void USeagullPauseMenu::NativeConstruct()
 {

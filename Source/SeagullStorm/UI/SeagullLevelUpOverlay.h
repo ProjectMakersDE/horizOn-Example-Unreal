@@ -14,7 +14,7 @@ class USeagullLevelUpOverlay : public UUserWidget
 	GENERATED_BODY()
 
 public:
-	virtual void NativeConstruct() override;
+	virtual void NativeOnInitialized() override;
 
 	void SetChoices(const TArray<FSeagullLevelUpChoice>& InChoices);
 

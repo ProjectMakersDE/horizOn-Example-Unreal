@@ -3,6 +3,8 @@
 #include "CoreMinimal.h"
 #include "SeagullTypes.generated.h"
 
+class UPaperFlipbook;
+
 // --- Game Screen States ---
 
 UENUM(BlueprintType)
@@ -137,20 +139,36 @@ struct FSeagullWeaponStats
 
 // --- Color Palette ---
 
+// Design-doc palette. The hex values are sRGB; UMG/Slate treats FLinearColor as
+// linear and gamma-encodes on output, so the bytes must be converted (writing them
+// straight into the float channels renders every color drastically lighter).
 namespace SeagullColors
 {
-	const FLinearColor Orange       = FLinearColor(0.847f, 0.474f, 0.263f); // #D87943
-	const FLinearColor Teal         = FLinearColor(0.322f, 0.459f, 0.459f); // #527575
-	const FLinearColor DarkBG       = FLinearColor(0.102f, 0.102f, 0.180f); // #1A1A2E
-	const FLinearColor LightText    = FLinearColor(0.933f, 0.933f, 0.933f); // #EEEEEE
-	const FLinearColor DarkText     = FLinearColor(0.110f, 0.110f, 0.110f); // #1C1C1C
-	const FLinearColor Sand         = FLinearColor(0.949f, 0.824f, 0.663f); // #F2D2A9
-	const FLinearColor Water        = FLinearColor(0.231f, 0.490f, 0.847f); // #3B7DD8
-	const FLinearColor XPGold       = FLinearColor(1.000f, 0.843f, 0.000f); // #FFD700
-	const FLinearColor CrabRed      = FLinearColor(0.878f, 0.357f, 0.294f); // #E05B4B
-	const FLinearColor JellyPurple  = FLinearColor(0.608f, 0.349f, 0.714f); // #9B59B6
-	const FLinearColor PirateDark   = FLinearColor(0.290f, 0.290f, 0.290f); // #4A4A4A
-	const FLinearColor SeagullWhite = FLinearColor(0.961f, 0.961f, 0.941f); // #F5F5F0
+	const FLinearColor Orange       = FLinearColor::FromSRGBColor(FColor(0xD8, 0x79, 0x43)); // #D87943
+	const FLinearColor Teal         = FLinearColor::FromSRGBColor(FColor(0x52, 0x75, 0x75)); // #527575
+	const FLinearColor DarkBG       = FLinearColor::FromSRGBColor(FColor(0x1A, 0x1A, 0x2E)); // #1A1A2E
+	const FLinearColor PanelBG      = FLinearColor::FromSRGBColor(FColor(0x24, 0x24, 0x42)); // #242442 panel/card surface
+	const FLinearColor LightText    = FLinearColor::FromSRGBColor(FColor(0xEE, 0xEE, 0xEE)); // #EEEEEE
+	const FLinearColor DarkText     = FLinearColor::FromSRGBColor(FColor(0x1C, 0x1C, 0x1C)); // #1C1C1C
+	const FLinearColor Sand         = FLinearColor::FromSRGBColor(FColor(0xF2, 0xD2, 0xA9)); // #F2D2A9
+	const FLinearColor Water        = FLinearColor::FromSRGBColor(FColor(0x3B, 0x7D, 0xD8)); // #3B7DD8
+	const FLinearColor XPGold       = FLinearColor::FromSRGBColor(FColor(0xFF, 0xD7, 0x00)); // #FFD700
+	const FLinearColor CrabRed      = FLinearColor::FromSRGBColor(FColor(0xE0, 0x5B, 0x4B)); // #E05B4B
+	const FLinearColor JellyPurple  = FLinearColor::FromSRGBColor(FColor(0x9B, 0x59, 0xB6)); // #9B59B6
+	const FLinearColor PirateDark   = FLinearColor::FromSRGBColor(FColor(0x4A, 0x4A, 0x4A)); // #4A4A4A
+	const FLinearColor SeagullWhite = FLinearColor::FromSRGBColor(FColor(0xF5, 0xF5, 0xF0)); // #F5F5F0
+}
+
+// --- Asset Helpers ---
+
+namespace SeagullAssets
+{
+	// Session-cached flipbook lookup for actors that spawn many times per second
+	// (projectiles, pickups, enemies). A plain LoadObject in the constructor would
+	// re-probe the disk and spam LogUObjectGlobals warnings on EVERY spawn while
+	// the editor-created assets (EDITOR_SETUP.md) do not exist yet.
+	// Null-guarded like the direct loads it replaces.
+	UPaperFlipbook* LoadFlipbookCached(const TCHAR* Path);
 }
 
 // --- Game Constants ---

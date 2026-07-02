@@ -59,6 +59,7 @@ void USeagullEnemySpawner::SpawnWave(UWorld* World)
 			{
 				HM->RecordBreadcrumb(TEXT("state"), FString::Printf(TEXT("wave_%d"), CurrentWave));
 				HM->SetCrashCustomKey(TEXT("wave"), FString::FromInt(CurrentWave));
+				HM->SetCrashCustomKey(TEXT("score"), FString::FromInt(GS->CurrentScore));
 			}
 		}
 	}

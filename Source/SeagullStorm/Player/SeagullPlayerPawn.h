@@ -4,6 +4,7 @@
 #include "GameFramework/Pawn.h"
 #include "SeagullPlayerPawn.generated.h"
 
+class UPaperFlipbook;
 class UPaperFlipbookComponent;
 class UFloatingPawnMovement;
 class USphereComponent;
@@ -48,6 +49,20 @@ public:
 	UPROPERTY(VisibleAnywhere)
 	USeagullWeaponManager* WeaponManager;
 
+	// Flipbooks loaded from canonical /Game/Flipbooks paths (null until the
+	// Paper2D assets are created in the editor, see EDITOR_SETUP.md)
+	UPROPERTY()
+	UPaperFlipbook* IdleFlipbook = nullptr;
+
+	UPROPERTY()
+	UPaperFlipbook* WalkFlipbook = nullptr;
+
+	UPROPERTY()
+	UPaperFlipbook* HurtFlipbook = nullptr;
+
+	UPROPERTY()
+	UPaperFlipbook* DeathFlipbook = nullptr;
+
 	float BaseSpeed = 200.f;
 	FVector2D LastMoveDirection = FVector2D(1.f, 0.f);
 
@@ -55,4 +70,13 @@ public:
 
 	UFUNCTION()
 	void OnDeath();
+
+	UFUNCTION()
+	void OnHealthChangedHandler(int32 Current, int32 Max);
+
+private:
+	void UpdateFlipbookState(float DeltaTime);
+
+	float HurtFlashTimer = 0.f;
+	int32 LastKnownHP = 0;
 };

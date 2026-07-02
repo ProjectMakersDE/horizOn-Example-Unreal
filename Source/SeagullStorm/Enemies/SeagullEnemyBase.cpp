@@ -6,6 +6,7 @@
 #include "Core/SeagullStormGameMode.h"
 #include "Audio/SeagullAudioManager.h"
 #include "Components/SphereComponent.h"
+#include "PaperFlipbook.h"
 #include "PaperFlipbookComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "SeagullStorm.h"
@@ -29,6 +30,17 @@ void ASeagullEnemyBase::BeginPlay()
 {
 	Super::BeginPlay();
 	CollisionComponent->OnComponentBeginOverlap.AddDynamic(this, &ASeagullEnemyBase::OnOverlapBegin);
+}
+
+void ASeagullEnemyBase::LoadFlipbooks(const TCHAR* WalkPath, const TCHAR* DeathPath)
+{
+	// Cached: enemies spawn several times per second during waves.
+	WalkFlipbook = SeagullAssets::LoadFlipbookCached(WalkPath);
+	DeathFlipbook = SeagullAssets::LoadFlipbookCached(DeathPath);
+	if (SpriteComponent && WalkFlipbook)
+	{
+		SpriteComponent->SetFlipbook(WalkFlipbook);
+	}
 }
 
 void ASeagullEnemyBase::Tick(float DeltaTime)
@@ -113,7 +125,19 @@ void ASeagullEnemyBase::OnDeath()
 		GS->AddKill();
 	}
 
-	Destroy();
+	// Play the death flipbook before despawning when the asset exists
+	if (SpriteComponent && DeathFlipbook)
+	{
+		SpriteComponent->SetFlipbook(DeathFlipbook);
+		SpriteComponent->SetLooping(false);
+		SpriteComponent->PlayFromStart();
+		SetActorEnableCollision(false);
+		SetLifeSpan(DeathDespawnDelay);
+	}
+	else
+	{
+		Destroy();
+	}
 }
 
 AActor* ASeagullEnemyBase::GetPlayerPawn() const

@@ -9,4 +9,6 @@ ASeagullEnemy_Crab::ASeagullEnemy_Crab()
 	CurrentHP = 30;
 	ContactDamage = 10;
 	XPDrop = 10;
+
+	LoadFlipbooks(TEXT("/Game/Flipbooks/FB_Crab_Walk"), TEXT("/Game/Flipbooks/FB_Crab_Death"));
 }

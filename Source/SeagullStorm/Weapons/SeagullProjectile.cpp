@@ -1,6 +1,8 @@
 #include "Weapons/SeagullProjectile.h"
 #include "Enemies/SeagullEnemyBase.h"
+#include "Core/SeagullTypes.h"
 #include "Components/SphereComponent.h"
+#include "PaperFlipbook.h"
 #include "PaperFlipbookComponent.h"
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "SeagullStorm.h"
@@ -18,6 +20,13 @@ ASeagullProjectile::ASeagullProjectile()
 
 	SpriteComponent = CreateDefaultSubobject<UPaperFlipbookComponent>(TEXT("Sprite"));
 	SpriteComponent->SetupAttachment(RootComponent);
+
+	// Flipbook asset is editor-created (see EDITOR_SETUP.md); null-guarded.
+	// Cached: projectiles spawn several times per second while firing.
+	if (UPaperFlipbook* Flipbook = SeagullAssets::LoadFlipbookCached(TEXT("/Game/Flipbooks/FB_Feather")))
+	{
+		SpriteComponent->SetFlipbook(Flipbook);
+	}
 
 	ProjectileMovement = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("ProjectileMovement"));
 	ProjectileMovement->UpdatedComponent = CollisionComponent;

@@ -5,6 +5,7 @@
 #include "Core/SeagullTypes.h"
 #include "SeagullEnemyBase.generated.h"
 
+class UPaperFlipbook;
 class UPaperFlipbookComponent;
 class USphereComponent;
 
@@ -39,6 +40,18 @@ public:
 protected:
 	virtual void MoveTowardPlayer(float DeltaTime);
 	virtual void OnDeath();
+
+	// Loads walk/death flipbooks from canonical /Game/Flipbooks paths.
+	// Called from subclass constructors (null-guarded; assets are editor-created).
+	void LoadFlipbooks(const TCHAR* WalkPath, const TCHAR* DeathPath);
+
+	UPROPERTY()
+	UPaperFlipbook* WalkFlipbook = nullptr;
+
+	UPROPERTY()
+	UPaperFlipbook* DeathFlipbook = nullptr;
+
+	float DeathDespawnDelay = 0.45f;
 
 	float AttackCooldown = 1.0f;
 	float AttackTimer = 0.f;

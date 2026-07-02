@@ -70,12 +70,15 @@ void ASeagullMapGenerator::SpawnGroundTile(const FVector& Position, const FLinea
 		Tile->SetStaticMesh(PlaneMesh);
 	}
 
-	// Create and set colored material
+	// Create and set colored material. The engine BasicShapeMaterial exposes its
+	// tint as "Color", other base materials use "BaseColor"; set both so the
+	// tiles are tinted regardless of which material the plane mesh carries.
 	UMaterialInstanceDynamic* Mat = UMaterialInstanceDynamic::Create(
 		Tile->GetMaterial(0), this);
 	if (Mat)
 	{
 		Mat->SetVectorParameterValue(TEXT("BaseColor"), Color);
+		Mat->SetVectorParameterValue(TEXT("Color"), Color);
 		Tile->SetMaterial(0, Mat);
 	}
 }

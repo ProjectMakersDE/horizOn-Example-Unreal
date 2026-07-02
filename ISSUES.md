@@ -1,91 +1,117 @@
-# Seagull Storm Unreal — Open Issues
+# Seagull Storm Unreal: Issue Status
 
-These issues were found during a design-doc audit and must be fixed before the project is considered complete.
+These issues were found during a design-doc audit. All code-side issues are resolved;
+the only remaining work is editor-only binary asset creation, documented step by step
+in [EDITOR_SETUP.md](EDITOR_SETUP.md).
 
 ---
 
 ## General Issues (shared across all engines)
 
-### G1: Google OAuth is a stub
-**Expected:** Functional Google OAuth flow using the horizOn SDK's OAuth mechanism.
-**Actual:** `OnGoogleClicked()` only logs `"Google sign-in not available in this example"`. No OAuth flow.
-**Acceptance:** The Google button must trigger the SDK's Google OAuth methods. If OAuth is not available on the platform, show a proper in-game error message (not just a UE_LOG).
+### G1: Google OAuth is a stub: RESOLVED
+`OnGoogleClicked()` no longer fires a doomed `SignInGoogle("", "")` network call
+(the SDK requires a pre-obtained OAuth authorization code and has no code-acquisition
+flow). It now surfaces a proper in-game error on the title screen's `StatusText`
+("Google sign-in is not available on this platform"), which renders since the widget
+trees are now constructed in C++ (`SeagullTitleScreen.cpp`).
 
-### G2: Pause Menu News makes a new request mid-run
-**Expected:** News loaded once at hub, cached and reused in pause menu. Zero requests during run.
-**Actual:** `SeagullNewsPanel.cpp` calls `HM->LoadNews()` every time it opens from pause menu.
-**Acceptance:** Cache the news data loaded at hub entry on `USeagullGameInstance`. The pause menu news panel must read from this cache — zero network requests during the run.
+### G2: Pause Menu News makes a new request mid-run: RESOLVED
+News is loaded once at hub entry, cached on `USeagullGameInstance`
+(`bNewsLoaded`/`CachedNews`), and the pause-menu news panel renders exclusively from
+that cache (`SeagullNewsPanel.cpp`). Zero network requests during a run.
 
-### G3: Remote Config must only be loaded once per session
-**Expected:** `getAllConfigs()` called once, cached for entire app session.
-**Actual:** Currently OK (flag-based guard). But `StartCrashCapture` is called per hub visit (see UE8).
-**Acceptance:** Verify config is loaded exactly once. No re-fetch on hub re-entry after a run.
+### G3: Remote Config must only be loaded once per session: RESOLVED
+`LoadAllConfigs` is guarded by `GI->bConfigLoaded` and never re-fetched on hub
+re-entry; the flag only resets on sign-out. `StartCrashCapture` moved to
+`SeagullStormGameMode::BeginPlay()` behind `bCrashCaptureStarted` (see UE8).
 
 ---
 
 ## Unreal-Specific Issues
 
-### UE1: All Unreal binary assets missing [CRITICAL]
-**Expected:** `.umap` level files and `.uasset` files for the project to open in the editor.
-**Actual:** Zero `.umap` and zero `.uasset` files exist. `Content/Maps/MainMap` referenced in DefaultEngine.ini does not exist.
-**Acceptance:** This requires the Unreal Editor and cannot be fixed by code alone. Document clearly what must be created in the editor. At minimum, create the MainMap and basic level Blueprint.
+### UE1: All Unreal binary assets missing: EDITOR-ONLY REMAINDER
+Everything creatable in code now exists: the full UMG widget trees for all 11 screens
+are constructed in pure C++ (`Source/SeagullStorm/UI/`, shared styling in
+`SeagullWidgetStyles.h/.cpp`), so no `WBP_` assets are needed at all. The `.gitignore`
+lines that blocked committing `*.uasset`/`*.umap` were removed. Remaining: create
+`Content/Maps/MainMap.umap` and import audio/textures in the Unreal Editor;
+see [EDITOR_SETUP.md](EDITOR_SETUP.md) steps 1-3.
 
-### UE2: Audio assets never loaded — all USoundWave* are nullptr [CRITICAL]
-**Expected:** 14 audio files loaded and assigned to AudioManager properties.
-**Actual:** `SeagullAudioManager` has 14 `USoundWave*` fields that are never assigned. No `LoadObject` or `ConstructorHelpers` calls exist. All audio silently fails.
-**Acceptance:** Add asset loading in `SeagullAudioManager::Initialize()` using `LoadObject<USoundWave>()` with `/Game/Audio/...` paths. All 14 sounds must be loadable at runtime. Alternatively, mark them as `UPROPERTY(EditDefaultsOnly)` for Blueprint assignment.
+### UE2: Audio assets never loaded: RESOLVED (code) / import pending (editor)
+Code side done: `SeagullAudioManager::Initialize()` loads all 14 sounds via
+`LoadObject<USoundWave>` from `/Game/Audio/...` paths and logs a loaded count. The 14
+`USoundWave*` properties stay plain `UPROPERTY()` (GC-referencing only): the audio
+manager is created with `NewObject` at runtime and has no Blueprint/archetype editing
+surface, so `EditDefaultsOnly`/Blueprint override would have no effect (documented in
+`SeagullAudioManager.h`). Every sound has a live trigger site. Remaining: import the 14
+OGG files in the editor at the matching paths; see
+[EDITOR_SETUP.md](EDITOR_SETUP.md) step 2.
 
-### UE3: PaperFlipbook assets missing [CRITICAL]
-**Expected:** Paper2D Flipbooks for all character animations.
-**Actual:** Only raw PNG files exist in `Content/Textures/`. No Paper2D Sprites or Flipbooks.
-**Acceptance:** This requires the Unreal Editor. Document the required Flipbooks: Player (Idle, Walk, Hurt, Death), each enemy type (Walk, Death), Boss (Idle, Death), weapon effects, pickups.
+### UE3: PaperFlipbook assets missing: RESOLVED (code) / flipbooks pending (editor)
+Code side done: player pawn, all four enemy types, XP/coin pickups and the feather
+projectile load canonical `/Game/Flipbooks/FB_*` flipbooks in their constructors
+(null-guarded), and the animation state switching is implemented: player Idle/Walk by
+velocity plus Hurt flash and Death hooks, enemies switch to their death flipbook and
+play it before despawning. Remaining: extract sprites and create the `FB_*` assets in
+the editor; exact names, frame counts and FPS are tabled in
+[EDITOR_SETUP.md](EDITOR_SETUP.md) step 4.
 
-### UE4: Pause Menu News re-fetches mid-run [MEDIUM]
-**Expected:** Zero requests during run.
-**Actual:** `SeagullNewsPanel.cpp` calls `HM->LoadNews()` from pause.
-**Acceptance:** Add a `TArray<FHorizonNewsEntry> CachedNews` to `USeagullGameInstance`. Populate at hub load. Read from cache in pause menu news panel.
+### UE4: Pause Menu News re-fetches mid-run: RESOLVED
+Same fix as G2 (`USeagullGameInstance::CachedNews`).
 
-### UE5: Gift Code reward hardcoded to 500 coins [MEDIUM]
-**Expected:** Reward parsed from server response.
-**Actual:** `SeagullGiftCodePanel.cpp` line 57: `GI->SaveData.Coins += 500` regardless of server response.
-**Acceptance:** Parse the `GiftData` string returned by `RedeemGiftCode` to extract the actual coin reward. Apply the parsed amount, not a hardcoded 500.
+### UE5: Gift Code reward hardcoded to 500 coins: RESOLVED
+`SeagullGiftCodePanel.cpp` parses the server's `GiftData` JSON and applies the
+`coins` field; 500 is only the fallback when parsing yields nothing.
 
-### UE6: Missing breadcrumb for hub upgrade purchases [LOW]
-**Expected:** `recordBreadcrumb("user_action", "bought_speed_3")` on each hub upgrade purchase.
-**Actual:** `SeagullMainHub.cpp` `TryBuyUpgrade()` has no breadcrumb call.
-**Acceptance:** Add `HM->RecordBreadcrumb(TEXT("user_action"), FString::Printf(TEXT("bought_%s_%d"), *Key, NewLevel))` after a successful upgrade purchase.
+### UE6: Missing breadcrumb for hub upgrade purchases: RESOLVED
+`TryBuyUpgrade()` records `bought_<key>_<level>` as a `user_action` breadcrumb.
 
-### UE7: Music crossfade not implemented [LOW]
-**Expected:** 0.5s crossfade between music tracks.
-**Actual:** `CrossfadeToTrack()` instantly switches tracks. `MusicCrossfadeDuration = 0.5f` is defined but never used.
-**Acceptance:** Implement actual crossfade using `UAudioComponent::FadeOut(0.5f)` on the current track and a timed `FadeIn` on the new track.
+### UE7: Music crossfade not implemented: RESOLVED
+`CrossfadeToTrack()` fades the current track out over `MusicCrossfadeDuration`
+(0.5s) and fades the new track in after the crossfade timer.
 
-### UE8: StartCrashCapture called on every hub visit [LOW]
-**Expected:** `registerSession()` called once at app start.
-**Actual:** `HM->StartCrashCapture()` is in `LoadHubData()` which fires on every hub construction.
-**Acceptance:** Move `StartCrashCapture()` to `SeagullStormGameMode::BeginPlay()` after session restore. Guard with a `bCrashCaptureStarted` flag.
+### UE8: StartCrashCapture called on every hub visit: RESOLVED
+Sole call site is `SeagullStormGameMode::BeginPlay()` guarded by
+`bCrashCaptureStarted`, once per app start.
 
-### UE9: Jellyfish poison zone not implemented [LOW]
-**Expected:** Jellyfish "leaves poison zone" on death.
-**Actual:** `SeagullEnemy_Jellyfish.cpp` `OnDeath()` has only a comment: "Could spawn poison zone here in future."
-**Acceptance:** Spawn a damage-over-time zone actor on jellyfish death. The zone should persist for 2-3 seconds and deal damage to the player if they walk through it.
+### UE9: Jellyfish poison zone not implemented: RESOLVED
+`ASeagullPoisonZone` spawns at the jellyfish death location: 2.5s lifetime,
+5 damage per 0.5s tick to overlapping player pawns.
 
-### UE10: Gamepad/Joystick input missing [LOW]
-**Expected:** "WASD / Joystick" movement per design doc.
-**Actual:** `SeagullPlayerController.cpp` only maps WASD keyboard keys.
-**Acceptance:** Add gamepad left-stick bindings to the Enhanced Input mapping context.
+### UE10: Gamepad/Joystick input missing: RESOLVED
+Gamepad left stick (`Gamepad_LeftX`/`Gamepad_LeftY` with swizzle) drives the Move
+action and `Gamepad_Special_Right` pauses, all in the runtime-built Enhanced Input
+mapping context.
 
-### UE11: Feedback category FEATURE vs FEATURE_REQUEST [LOW]
-**Expected:** Category `FEATURE_REQUEST`.
-**Actual:** `SeagullFeedbackForm.cpp` uses `FEATURE`.
-**Acceptance:** Change to `FEATURE_REQUEST` to match the design doc and other engine implementations.
+### UE11: Feedback category FEATURE vs FEATURE_REQUEST: RESOLVED
+The feedback form offers `BUG` / `FEATURE_REQUEST` / `GENERAL`.
 
-### UE12: Magnet level missing from User Log string [LOW]
-**Expected:** Log includes all 4 upgrade levels: `speed:3,dmg:1,hp:2,magnet:0`.
-**Actual:** Log only includes speed, dmg, hp — magnet is omitted.
-**Acceptance:** Add magnet upgrade level to the log format string.
+### UE12: Magnet level missing from User Log string: RESOLVED
+The game-over user log includes `magnet:%d` alongside speed/dmg/hp.
 
-### UE13: Default Map MainMap.umap does not exist [CRITICAL]
-**Expected:** A playable level at `Content/Maps/MainMap`.
-**Actual:** File does not exist. `DefaultEngine.ini` references it.
-**Acceptance:** Create the map in Unreal Editor (see UE1).
+### UE13: Default Map MainMap.umap does not exist: EDITOR-ONLY REMAINDER
+Blocked-by-.gitignore part fixed (ignore lines removed). Remaining: create the empty
+level and save it as `Content/Maps/MainMap`; see
+[EDITOR_SETUP.md](EDITOR_SETUP.md) step 1. GameMode/GameInstance are already wired
+project-wide via `DefaultEngine.ini`, so an empty level suffices.
+
+---
+
+## Additional fixes beyond the original audit list
+
+- **Widget trees (was the biggest functional blocker):** all 11 widget classes in
+  `Source/SeagullStorm/UI/` construct their full UMG trees in
+  `NativeOnInitialized()` via `WidgetTree->ConstructWidget<>`, assigning every
+  `BindWidgetOptional` pointer. Shared Press Start 2P font (loaded from the shipped
+  TTF at runtime), palette colors and button styling live in `SeagullWidgetStyles`.
+- **Title logo:** `seagull_logo.png` is imported at runtime
+  (`FImageUtils::ImportFileAsTexture2D`) into a `UImage` above the title text.
+- **Crash custom key `score`:** set alongside the existing `wave` (wave spawn) and
+  `level` (level-up) custom keys, per plan section 6.9.
+- **Map tile tint:** the dynamic tile material sets both `BaseColor` and `Color`
+  vector parameters so the engine BasicShapeMaterial tints correctly.
+- **Sign-out reset:** also clears the news cache (`bNewsLoaded`/`CachedNews`) in
+  addition to save/config flags.
+- **Pause-quit design deviation** (Quit ends the run via the score-submitting
+  Game Over path instead of silently returning to the Hub) is documented in the
+  README.

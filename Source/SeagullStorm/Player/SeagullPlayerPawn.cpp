@@ -7,6 +7,7 @@
 #include "Core/SeagullPlayerController.h"
 #include "Data/SeagullConfigCache.h"
 #include "Components/SphereComponent.h"
+#include "PaperFlipbook.h"
 #include "PaperFlipbookComponent.h"
 #include "GameFramework/FloatingPawnMovement.h"
 #include "GameFramework/SpringArmComponent.h"
@@ -28,6 +29,17 @@ ASeagullPlayerPawn::ASeagullPlayerPawn()
 	// Sprite
 	SpriteComponent = CreateDefaultSubobject<UPaperFlipbookComponent>(TEXT("Sprite"));
 	SpriteComponent->SetupAttachment(RootComponent);
+
+	// Flipbooks (assets are created in the editor from seagull.png, see EDITOR_SETUP.md;
+	// all loads are null-guarded so the game runs without them)
+	IdleFlipbook = SeagullAssets::LoadFlipbookCached(TEXT("/Game/Flipbooks/FB_Seagull_Idle"));
+	WalkFlipbook = SeagullAssets::LoadFlipbookCached(TEXT("/Game/Flipbooks/FB_Seagull_Walk"));
+	HurtFlipbook = SeagullAssets::LoadFlipbookCached(TEXT("/Game/Flipbooks/FB_Seagull_Hurt"));
+	DeathFlipbook = SeagullAssets::LoadFlipbookCached(TEXT("/Game/Flipbooks/FB_Seagull_Death"));
+	if (IdleFlipbook)
+	{
+		SpriteComponent->SetFlipbook(IdleFlipbook);
+	}
 
 	// Movement
 	MovementComponent = CreateDefaultSubobject<UFloatingPawnMovement>(TEXT("Movement"));
@@ -60,7 +72,9 @@ void ASeagullPlayerPawn::BeginPlay()
 {
 	Super::BeginPlay();
 	HealthComponent->OnDeath.AddDynamic(this, &ASeagullPlayerPawn::OnDeath);
+	HealthComponent->OnHealthChanged.AddDynamic(this, &ASeagullPlayerPawn::OnHealthChangedHandler);
 	ApplyUpgrades();
+	LastKnownHP = HealthComponent->CurrentHP;
 }
 
 void ASeagullPlayerPawn::Tick(float DeltaTime)
@@ -95,6 +109,41 @@ void ASeagullPlayerPawn::Tick(float DeltaTime)
 	Pos.X = FMath::Clamp(Pos.X, -HalfW, HalfW);
 	Pos.Y = FMath::Clamp(Pos.Y, -HalfH, HalfH);
 	SetActorLocation(Pos);
+
+	UpdateFlipbookState(DeltaTime);
+}
+
+void ASeagullPlayerPawn::UpdateFlipbookState(float DeltaTime)
+{
+	if (!SpriteComponent) return;
+
+	// Death animation wins and is never overridden
+	if (HealthComponent && HealthComponent->IsDead()) return;
+
+	// Brief hurt flash after taking damage
+	if (HurtFlashTimer > 0.f)
+	{
+		HurtFlashTimer -= DeltaTime;
+		return;
+	}
+
+	// Idle/Walk by movement speed
+	const bool bMoving = MovementComponent && MovementComponent->Velocity.SizeSquared() > 25.f;
+	UPaperFlipbook* Desired = bMoving ? WalkFlipbook : IdleFlipbook;
+	if (Desired && SpriteComponent->GetFlipbook() != Desired)
+	{
+		SpriteComponent->SetFlipbook(Desired);
+	}
+}
+
+void ASeagullPlayerPawn::OnHealthChangedHandler(int32 Current, int32 Max)
+{
+	if (Current < LastKnownHP && SpriteComponent && HurtFlipbook)
+	{
+		SpriteComponent->SetFlipbook(HurtFlipbook);
+		HurtFlashTimer = 0.3f;
+	}
+	LastKnownHP = Current;
 }
 
 void ASeagullPlayerPawn::ApplyUpgrades()
@@ -125,6 +174,14 @@ void ASeagullPlayerPawn::ApplyUpgrades()
 void ASeagullPlayerPawn::OnDeath()
 {
 	UE_LOG(LogSeagullStorm, Log, TEXT("Player died!"));
+
+	// Death flipbook hook: plays until the run actors are cleaned up
+	if (SpriteComponent && DeathFlipbook)
+	{
+		SpriteComponent->SetFlipbook(DeathFlipbook);
+		SpriteComponent->SetLooping(false);
+		SpriteComponent->PlayFromStart();
+	}
 
 	ASeagullStormGameMode* GM = Cast<ASeagullStormGameMode>(GetWorld()->GetAuthGameMode());
 	if (GM)

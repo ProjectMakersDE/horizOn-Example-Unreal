@@ -7,6 +7,7 @@
 class UButton;
 class UTextBlock;
 class UEditableTextBox;
+class UImage;
 
 UCLASS()
 class USeagullTitleScreen : public UUserWidget
@@ -14,9 +15,13 @@ class USeagullTitleScreen : public UUserWidget
 	GENERATED_BODY()
 
 public:
+	virtual void NativeOnInitialized() override;
 	virtual void NativeConstruct() override;
 
 protected:
+	UPROPERTY(meta = (BindWidgetOptional))
+	UImage* LogoImage = nullptr;
+
 	UPROPERTY(meta = (BindWidgetOptional))
 	UTextBlock* TitleText = nullptr;
 

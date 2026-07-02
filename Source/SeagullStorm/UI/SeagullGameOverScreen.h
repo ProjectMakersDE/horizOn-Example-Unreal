@@ -13,6 +13,7 @@ class USeagullGameOverScreen : public UUserWidget
 	GENERATED_BODY()
 
 public:
+	virtual void NativeOnInitialized() override;
 	virtual void NativeConstruct() override;
 
 	void SetRank(int32 Rank);

@@ -16,6 +16,8 @@ ASeagullEnemy_Boss::ASeagullEnemy_Boss()
 	{
 		CollisionComponent->SetSphereRadius(28.f);
 	}
+
+	LoadFlipbooks(TEXT("/Game/Flipbooks/FB_Boss_Idle"), TEXT("/Game/Flipbooks/FB_Boss_Death"));
 }
 
 void ASeagullEnemy_Boss::MoveTowardPlayer(float DeltaTime)

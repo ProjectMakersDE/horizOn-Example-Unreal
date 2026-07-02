@@ -14,6 +14,7 @@ class USeagullNewsPanel : public UUserWidget
 	GENERATED_BODY()
 
 public:
+	virtual void NativeOnInitialized() override;
 	virtual void NativeConstruct() override;
 	void LoadNews();
 

@@ -15,7 +15,12 @@ class USeagullMainHub : public UUserWidget
 	GENERATED_BODY()
 
 public:
+	virtual void NativeOnInitialized() override;
 	virtual void NativeConstruct() override;
+
+	// Re-renders coins/highscore/upgrade labels from GameInstance state. Public so
+	// out-of-hub changes (e.g. a gift code redemption) can refresh the display.
+	void RefreshDisplay();
 
 protected:
 	UPROPERTY(meta = (BindWidgetOptional))
@@ -42,6 +47,31 @@ protected:
 	UPROPERTY(meta = (BindWidgetOptional))
 	UVerticalBox* NewsBox = nullptr;
 
+	// Upgrade panel rows (label shows level + next cost, button buys)
+	UPROPERTY(meta = (BindWidgetOptional))
+	UTextBlock* SpeedLevelText = nullptr;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UTextBlock* DamageLevelText = nullptr;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UTextBlock* HPLevelText = nullptr;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UTextBlock* MagnetLevelText = nullptr;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UButton* BuySpeedButton = nullptr;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UButton* BuyDamageButton = nullptr;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UButton* BuyHPButton = nullptr;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UButton* BuyMagnetButton = nullptr;
+
 private:
 	UFUNCTION()
 	void OnPlayClicked();
@@ -56,7 +86,6 @@ private:
 	void OnSettingsClicked();
 
 	void LoadHubData();
-	void RefreshDisplay();
 
 	// Upgrade buttons
 	UFUNCTION()
@@ -70,4 +99,8 @@ private:
 
 	void TryBuyUpgrade(const FString& Key);
 	void DisplayNews(const TArray<FHorizonNewsEntry>& Entries);
+
+	class UWidget* BuildUpgradeRow(UTextBlock*& OutLevelText, UButton*& OutBuyButton,
+		const FString& RowName);
+	void UpdateUpgradeRow(UTextBlock* LevelText, const FString& Label, const FString& Key);
 };

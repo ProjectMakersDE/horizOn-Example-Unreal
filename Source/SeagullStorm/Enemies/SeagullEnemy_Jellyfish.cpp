@@ -10,6 +10,8 @@ ASeagullEnemy_Jellyfish::ASeagullEnemy_Jellyfish()
 	CurrentHP = 50;
 	ContactDamage = 15;
 	XPDrop = 20;
+
+	LoadFlipbooks(TEXT("/Game/Flipbooks/FB_Jellyfish_Idle"), TEXT("/Game/Flipbooks/FB_Jellyfish_Death"));
 }
 
 void ASeagullEnemy_Jellyfish::OnDeath()

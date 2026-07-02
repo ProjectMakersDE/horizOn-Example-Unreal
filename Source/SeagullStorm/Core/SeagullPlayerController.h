@@ -23,12 +23,18 @@ class ASeagullPlayerController : public APlayerController
 public:
 	ASeagullPlayerController();
 
+	// Also creates and binds the Enhanced Input actions: SetupInputComponent()
+	// would run before the runtime-created actions exist for the initial
+	// player controller, so binding happens here instead.
 	virtual void BeginPlay() override;
-	virtual void SetupInputComponent() override;
 
 	void OnScreenChanged(ESeagullGameScreen NewScreen);
 	void ShowLevelUpOverlay(const TArray<FSeagullLevelUpChoice>& Choices);
 	void HideLevelUpOverlay();
+
+	// Refreshes the hub display (coins etc.) if the hub is currently shown,
+	// e.g. after a gift code redemption from the modal on top of it.
+	void RefreshHubDisplay();
 
 	void TogglePause();
 

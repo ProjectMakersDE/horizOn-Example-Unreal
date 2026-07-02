@@ -19,7 +19,9 @@ public:
 
 	void CrossfadeToTrack(USoundWave* NewTrack, UWorld* World);
 
-	// Asset references (loaded by path)
+	// Asset references, filled exclusively by Initialize() via LoadObject path
+	// lookups (plain UPROPERTY: this object is created with NewObject at runtime,
+	// so there is no Blueprint/archetype surface where editor specifiers apply).
 	UPROPERTY()
 	USoundWave* MusicMenu = nullptr;
 

@@ -9,6 +9,8 @@ ASeagullEnemy_Pirate::ASeagullEnemy_Pirate()
 	CurrentHP = 40;
 	ContactDamage = 20;
 	XPDrop = 25;
+
+	LoadFlipbooks(TEXT("/Game/Flipbooks/FB_Pirate_Walk"), TEXT("/Game/Flipbooks/FB_Pirate_Death"));
 }
 
 void ASeagullEnemy_Pirate::MoveTowardPlayer(float DeltaTime)

@@ -1,14 +1,27 @@
 #include "Pickups/SeagullPickup_XP.h"
+#include "Core/SeagullTypes.h"
 #include "Player/SeagullPlayerPawn.h"
 #include "Player/SeagullXPComponent.h"
 #include "Core/SeagullStormGameState.h"
 #include "Core/SeagullStormGameMode.h"
 #include "Audio/SeagullAudioManager.h"
+#include "PaperFlipbook.h"
+#include "PaperFlipbookComponent.h"
 #include "Kismet/GameplayStatics.h"
 
 ASeagullPickup_XP::ASeagullPickup_XP()
 {
 	PickupType = ESeagullPickupType::XP;
+
+	// Flipbook asset is editor-created (see EDITOR_SETUP.md); null-guarded.
+	// Cached: an XP shell spawns on every enemy kill.
+	if (UPaperFlipbook* Flipbook = SeagullAssets::LoadFlipbookCached(TEXT("/Game/Flipbooks/FB_XPShell")))
+	{
+		if (SpriteComponent)
+		{
+			SpriteComponent->SetFlipbook(Flipbook);
+		}
+	}
 }
 
 void ASeagullPickup_XP::Tick(float DeltaTime)
