@@ -199,4 +199,5 @@ SeagullStorm.uproject       # Project file
 
 ## License
 
-MIT
+[MIT](LICENSE). The bundled Press Start 2P font is licensed under the SIL Open Font License 1.1,
+see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
