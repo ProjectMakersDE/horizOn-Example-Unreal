@@ -28,7 +28,7 @@ so the map itself can stay completely empty: no Level Blueprint, no placed actor
 
 **Expected result:** Pressing **Play** boots into the Title screen (dark background,
 seagull logo, "SEAGULL STORM", name input, five auth buttons — Guest, Google, Apple,
-Email, Create Account; Google/Apple are desktop stubs, see the README deviation). With a
+Email, Create Account; Google/Apple are desktop stubs, see the README known limitations). With a
 configured API key the whole screen flow (Title -> Hub -> Run -> Game Over) works;
 gameplay actors are still invisible and the game is silent until steps 2-4 are done.
 

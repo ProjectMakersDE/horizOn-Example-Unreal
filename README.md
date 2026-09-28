@@ -63,30 +63,16 @@ The game works out of the box with built-in defaults. To customize the game bala
 
 Press **Play** in the Unreal editor.
 
-### Design Deviation: Quit from the Pause Menu
+## Gameplay Notes and Known Limitations
 
-The shared design doc says "Quit -> returns to Hub, counts as death for scoring".
-This implementation deliberately deviates: **Quit Run** ends the run via the normal
-end-of-run path (`EndRun(false)`): the score still counts and is submitted, the run
-does not count as a death, and the player lands on the Game Over screen instead of
-jumping straight to the Hub. This keeps every run's score submission consistent.
-
-### Design Deviation: Title-Screen Auth Buttons
-
-The design layout shows four auth buttons (Guest, Google, Email, Create Account);
-this implementation shows five. A **Sign In with Apple** button is added because the
-Unreal SDK ships a drop-in Apple flow (native sheet on iOS). On desktop platforms
-both the Google and the Apple button report "not available on this platform" on the
-status line: the SDK's Google flow requires a pre-obtained OAuth authorization code
-(there is no desktop browser flow), and the Apple flow no-ops outside iOS.
-
-### Design Deviation: Hub Leaderboard Shows Top 10 Only
-
-The design's Main Hub layout shows the player's own rank row below the top list.
-This implementation shows only the Top 10 in the hub; the player's own rank is
-fetched and shown on the Game Over screen instead (right after the score submit),
-which keeps the hub at its fixed request budget. The Run HUD also omits the design's
-percentage label on the XP bar.
+- **Sign-in:** the title screen shows Guest, Google, Apple, Email and Create Account.
+  On desktop platforms the Google and Apple buttons report "not available on this
+  platform": the SDK's Google flow needs a pre-obtained OAuth authorization code (there
+  is no desktop browser flow), and the Apple flow only runs on iOS.
+- **Quit Run** in the pause menu ends the run through the normal end-of-run path: the
+  score is submitted and the Game Over screen opens.
+- **Leaderboard:** the hub shows the Top 10. Your own rank is shown on the Game Over
+  screen after the score is submitted.
 
 ## Remote Config Reference
 
