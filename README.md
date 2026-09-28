@@ -1,9 +1,12 @@
 # horizOn Example — Unreal Engine
 
 > **Status: Under Construction**
-> This project is actively being developed. Screenshots and a playable demo will be added soon.
+> The project does not run straight after cloning yet. The repository contains the C++ code and
+> the raw art, audio and font files, but not the editor-created map, sound, texture and
+> flipbook assets. Before the first Play, follow [EDITOR_SETUP.md](EDITOR_SETUP.md) once in
+> Unreal Engine 5.5.
 
-**Seagull Storm** is a mini Vampire Survivors-style roguelike built with Unreal Engine 5. It serves as a comprehensive example project demonstrating all 9 [horizOn](https://horizon.pm) SDK features in a real, playable game.
+**Seagull Storm** is a mini Vampire Survivors-style roguelike built with Unreal Engine 5. It serves as a comprehensive example project demonstrating 9 [horizOn](https://horizon.pm) SDK features in a real, playable game.
 
 ## Features Demonstrated
 
@@ -35,7 +38,8 @@ You play as a seagull on a beach, surviving waves of crabs, jellyfish, and pirat
 1. Clone this repository
 2. Open the `.uproject` file with **Unreal Engine 5.5**
 3. Follow [EDITOR_SETUP.md](EDITOR_SETUP.md) to create the editor-only assets
-   (map, audio imports, sprites/flipbooks); all code is C++ and needs no editor work
+   (map, audio imports, sprites/flipbooks). This step is currently required; all code is
+   C++ and needs no editor work
 
 ### Step 2 — Create a horizOn Account and API Key
 
