@@ -108,7 +108,7 @@ Then select the frames of one animation (in sheet order, left to right), right-c
 | `FB_XPShell` | pickups.png | 0 | 4 | 8 |
 | `FB_Coin` | pickups.png | 1 | 4 | 8 |
 
-Optional (defined in the asset plan, not yet consumed by code): `FB_Screech`
+Optional (not used by the code yet): `FB_Screech`
 (weapons row 1), `FB_Dive` (row 2), `FB_Gust` (row 3), `FB_Health` (pickups row 2).
 
 **Expected result:** On the next Play the seagull is visible and switches Idle/Walk
