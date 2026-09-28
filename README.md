@@ -69,6 +69,9 @@ Press **Play** in the Unreal editor.
 
 ## Gameplay Notes and Known Limitations
 
+- **Editor assets:** the map, sound, texture and flipbook assets are not in the
+  repository yet. Create them once with [EDITOR_SETUP.md](EDITOR_SETUP.md) before the
+  first Play.
 - **Sign-in:** the title screen shows Guest, Google, Apple, Email and Create Account.
   On desktop platforms the Google and Apple buttons report "not available on this
   platform": the SDK's Google flow needs a pre-obtained OAuth authorization code (there
