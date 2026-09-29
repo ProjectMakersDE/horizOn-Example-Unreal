@@ -5,13 +5,6 @@ namespace SeagullInputLogPrivate
 {
 	// Stick values inside this band count as "no input" on that axis.
 	constexpr float MoveDeadZone = 0.3f;
-
-	uint8 AxisToCell(float Value)
-	{
-		if (Value < -MoveDeadZone) return 0;
-		if (Value > MoveDeadZone) return 2;
-		return 1;
-	}
 }
 
 void FSeagullInputLog::Reset()
@@ -19,44 +12,43 @@ void FSeagullInputLog::Reset()
 	Bytes.Reset();
 	Bytes.Reserve(1024);
 
-	// Magic "SGS1" plus a zero seed, filled in by SetSeed.
-	const uint8 Header[HeaderBytes] = { 'S', 'G', 'S', '1', 0, 0, 0, 0 };
-	for (int32 Index = 0; Index < HeaderBytes; ++Index)
+	// Version byte plus a zero seed, filled in by SetSeed.
+	Bytes.Add(FormatVersion);
+	for (int32 Index = 1; Index < HeaderBytes; ++Index)
 	{
-		Bytes.Add(Header[Index]);
+		Bytes.Add(0);
 	}
 
-	LastMove = 4;
+	LastTick = 0;
+	LastMove = 0;
 	bTruncated = false;
 	bFinished = false;
 }
 
-void FSeagullInputLog::SetSeed(int32 Seed, float RunSeconds)
+void FSeagullInputLog::SetSeed(int32 Seed)
 {
 	const uint32 Value = static_cast<uint32>(Seed);
-	Bytes[4] = static_cast<uint8>(Value & 0xFF);
-	Bytes[5] = static_cast<uint8>((Value >> 8) & 0xFF);
-	Bytes[6] = static_cast<uint8>((Value >> 16) & 0xFF);
-	Bytes[7] = static_cast<uint8>((Value >> 24) & 0xFF);
-
-	AddRecord(RunSeconds, EKind::Seeded, 0);
+	Bytes[1] = static_cast<uint8>(Value & 0xFF);
+	Bytes[2] = static_cast<uint8>((Value >> 8) & 0xFF);
+	Bytes[3] = static_cast<uint8>((Value >> 16) & 0xFF);
+	Bytes[4] = static_cast<uint8>((Value >> 24) & 0xFF);
 }
 
 void FSeagullInputLog::RecordMove(float RunSeconds, float X, float Y)
 {
-	const uint8 Move = QuantizeMove(X, Y);
+	const uint8 Move = MoveBits(X, Y);
 	if (Move == LastMove)
 	{
 		return;
 	}
 	LastMove = Move;
-	AddRecord(RunSeconds, EKind::Move, Move);
+	AddEvent(RunSeconds, Move);
 }
 
 void FSeagullInputLog::RecordLevelUpChoice(float RunSeconds, int32 ChoiceIndex)
 {
-	const int32 Clamped = ChoiceIndex < 0 ? 0 : (ChoiceIndex > 255 ? 255 : ChoiceIndex);
-	AddRecord(RunSeconds, EKind::LevelUpChoice, static_cast<uint8>(Clamped));
+	const int32 Clamped = ChoiceIndex < 0 ? 0 : (ChoiceIndex > 15 ? 15 : ChoiceIndex);
+	AddEvent(RunSeconds, static_cast<uint8>(LevelUpChoiceCode | Clamped));
 }
 
 void FSeagullInputLog::Finish(float RunSeconds)
@@ -65,43 +57,66 @@ void FSeagullInputLog::Finish(float RunSeconds)
 	{
 		return;
 	}
-	AddRecord(RunSeconds, EKind::End, 0);
+	AddEvent(RunSeconds, EndCode);
 	bFinished = true;
 }
 
-uint8 FSeagullInputLog::QuantizeMove(float X, float Y)
+uint8 FSeagullInputLog::MoveBits(float X, float Y)
 {
-	// Row 0 is "up" (Y > 0) so the grid reads like a keypad.
-	const uint8 Column = SeagullInputLogPrivate::AxisToCell(X);
-	const uint8 Row = static_cast<uint8>(2 - SeagullInputLogPrivate::AxisToCell(Y));
-	return static_cast<uint8>(Row * 3 + Column);
+	using SeagullInputLogPrivate::MoveDeadZone;
+
+	uint8 Bits = 0;
+	if (X < -MoveDeadZone) Bits |= MoveLeft;
+	if (X > MoveDeadZone) Bits |= MoveRight;
+	if (Y > MoveDeadZone) Bits |= MoveUp;
+	if (Y < -MoveDeadZone) Bits |= MoveDown;
+	return Bits;
 }
 
-void FSeagullInputLog::AddRecord(float RunSeconds, EKind Kind, uint8 Value)
+void FSeagullInputLog::AddEvent(float RunSeconds, uint8 Code)
 {
 	if (bFinished)
 	{
 		return;
 	}
-	// Every record but the end record keeps room for the end record.
-	const int32 ReservedForEnd = (Kind == EKind::End) ? 0 : RecordBytes;
-	if (Bytes.Num() + RecordBytes + ReservedForEnd > MaxBytes)
+
+	uint32 Tick = ToTick(RunSeconds);
+	if (Tick < LastTick)
+	{
+		Tick = LastTick;
+	}
+
+	// A gap longer than a uint16 is bridged with the current direction, repeated.
+	while (Tick - LastTick > MaxTickGap && !bTruncated)
+	{
+		AppendEvent(MaxTickGap, LastMove);
+	}
+
+	// After a truncated bridge only the end event still fits; its gap is clamped.
+	const uint32 Gap = Tick - LastTick;
+	AppendEvent(Gap > MaxTickGap ? MaxTickGap : Gap, Code);
+}
+
+void FSeagullInputLog::AppendEvent(uint32 TickGap, uint8 Code)
+{
+	// Every event but the end event keeps room for the end event.
+	const int32 ReservedForEnd = (Code == EndCode) ? 0 : EventBytes;
+	if (Bytes.Num() + EventBytes + ReservedForEnd > MaxBytes)
 	{
 		bTruncated = true;
 		return;
 	}
 
-	const uint16 Tick = ToTick(RunSeconds);
-	Bytes.Add(static_cast<uint8>(Tick & 0xFF));
-	Bytes.Add(static_cast<uint8>((Tick >> 8) & 0xFF));
-	Bytes.Add(static_cast<uint8>(Kind));
-	Bytes.Add(Value);
+	Bytes.Add(static_cast<uint8>(TickGap & 0xFF));
+	Bytes.Add(static_cast<uint8>((TickGap >> 8) & 0xFF));
+	Bytes.Add(Code);
+	LastTick += TickGap;
 }
 
-uint16 FSeagullInputLog::ToTick(float RunSeconds)
+uint32 FSeagullInputLog::ToTick(float RunSeconds)
 {
-	const float Ticks = RunSeconds * static_cast<float>(TicksPerSecond);
-	if (!(Ticks > 0.f)) return 0;
-	if (Ticks >= 65535.f) return 65535;
-	return static_cast<uint16>(Ticks);
+	const double Ticks = static_cast<double>(RunSeconds) * TicksPerSecond;
+	if (!(Ticks > 0.0)) return 0;
+	if (Ticks >= 4294967295.0) return 4294967295u;
+	return static_cast<uint32>(Ticks);
 }

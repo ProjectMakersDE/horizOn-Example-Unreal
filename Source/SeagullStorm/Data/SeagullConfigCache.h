@@ -22,6 +22,7 @@ public:
 	// Validated Actions (only used when built with HORIZON_WITH_VALIDATED_ACTIONS=1)
 	bool bValidatedActionsEnabled = false;
 	FString ValidatedCoinsKey;
+	FString ValidatedRunsBoard = TEXT("default");
 
 	// Wave System
 	float WaveIntervalSeconds = 15.f;

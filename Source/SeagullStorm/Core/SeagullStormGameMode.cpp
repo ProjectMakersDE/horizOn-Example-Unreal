@@ -19,8 +19,6 @@
 #include "Kismet/GameplayStatics.h"
 #include "EngineUtils.h"
 
-const TCHAR* ASeagullStormGameMode::ValidatedLeaderboardKey = TEXT("default");
-
 ASeagullStormGameMode::ASeagullStormGameMode()
 {
 	PrimaryActorTick.bCanEverTick = true;
@@ -412,7 +410,9 @@ void ASeagullStormGameMode::BeginValidatedRun()
 
 	const int32 Serial = RunSerial;
 	TWeakObjectPtr<ASeagullStormGameMode> WeakThis(this);
-	HM->StartValidatedRun(ValidatedLeaderboardKey, [WeakThis, Serial](bool bSuccess, int32 Seed, const FString& ErrorCode)
+	// Board from remote config validated_runs_board (default "default", the game's leaderboard).
+	const FString Board = (GI && GI->GetConfigCache()) ? GI->GetConfigCache()->ValidatedRunsBoard : FString(TEXT("default"));
+	HM->StartValidatedRun(Board, [WeakThis, Serial](bool bSuccess, int32 Seed, const FString& ErrorCode)
 	{
 		ASeagullStormGameMode* GM = WeakThis.Get();
 		if (!GM || Serial != GM->RunSerial) return; // answer for an earlier run
@@ -425,13 +425,10 @@ void ASeagullStormGameMode::BeginValidatedRun()
 			return;
 		}
 
-		ASeagullStormGameState* RunState = GM->GetGameState<ASeagullStormGameState>();
-		const float RunSeconds = RunState ? RunState->RunStats.Duration : 0.f;
-
 		// Seed the random stream (enemy spawns, level-up cards) with the server seed and
-		// note it in the log, so a replay can rebuild the run.
+		// note it in the log header, so a replay can rebuild the run.
 		FMath::RandInit(Seed);
-		GM->InputLog.SetSeed(Seed, RunSeconds);
+		GM->InputLog.SetSeed(Seed);
 		GM->bValidatedTicketReady = true;
 		UE_LOG(LogSeagullStorm, Log, TEXT("Validated run started, seed %d"), Seed);
 	});

@@ -105,13 +105,15 @@ To turn it on:
 
 ### What the game does
 
-- **Run start** (`ASeagullStormGameMode::BeginValidatedRun`): `StartRun("default")` binds the
-  ticket to the game's leaderboard. When the ticket arrives, the game seeds the random stream
+- **Run start** (`ASeagullStormGameMode::BeginValidatedRun`): `StartRun` binds the ticket to
+  the board from `validated_runs_board` (default `default`, the game's leaderboard). When the ticket arrives, the game seeds the random stream
   (enemy spawns, level-up cards) with the server seed.
-- **Input log** (`FSeagullInputLog`): an 8 byte header (`SGS1` plus the seed) and 4 byte
-  records (tick in 1/20 s, kind, value) for every change of the move direction, every level-up
-  pick and the end of the run. A three minute run needs a few kilobytes; the log never grows
-  beyond 32 KB, the server's evidence limit.
+- **Input log** (`FSeagullInputLog`, format v1, the same as in the Unity and Godot examples):
+  a 5 byte header (version 1 plus the seed) and 3 byte events (ticks at 60 per second since
+  the previous event, code). Codes: movement bits `0x00` to `0x0F` (1 left, 2 right, 4 up,
+  8 down) when the direction changes or the gap reaches 65535 ticks, `0x10` plus the card
+  index for a level-up pick, `0xFF` for the end of the run. A three minute run needs a few
+  kilobytes; the log never grows beyond 32 KB, the server's evidence limit.
 - **Game over** (`ASeagullStormGameMode::SubmitRunScore`): `SubmitValidated` with the score,
   the stage `wave_N` and the log. The SDK hashes the log (SHA-256). The Game Over screen shows
   "Validated run" and the rank, or a short reason when the server refused the run (for example
@@ -163,6 +165,7 @@ Only used when the game is built with Validated Actions (see [Validated Actions]
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `validated_runs_enabled` | bool | `false` | Start a run ticket and submit validated; `false` uses the normal score submit. Same key as in the Unity and Godot examples |
+| `validated_runs_board` | string | `default` | Leaderboard the run tickets are bound to |
 | `validated_runs_send_coins` | bool | `false` | Send the coins of a run as earned value `coins` (the rules must define that value) |
 
 ### Wave Spawning

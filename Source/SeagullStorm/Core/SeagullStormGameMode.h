@@ -66,9 +66,6 @@ private:
 	void CleanupRunActors();
 
 	// --- Validated Actions ---
-	// Leaderboard the run tickets are bound to: the game's default board.
-	static const TCHAR* ValidatedLeaderboardKey;
-
 	// Input log of the current run (seed plus inputs), hashed and submitted at game over.
 	FSeagullInputLog InputLog;
 
