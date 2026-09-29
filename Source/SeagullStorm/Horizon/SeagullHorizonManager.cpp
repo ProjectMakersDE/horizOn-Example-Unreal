@@ -1,6 +1,17 @@
 #include "Horizon/SeagullHorizonManager.h"
 #include "SeagullStorm.h"
 
+// HorizonSubsystem.h only forward declares its managers: include every manager this facade calls.
+#include "Managers/HorizonAuthManager.h"
+#include "Managers/HorizonCloudSaveManager.h"
+#include "Managers/HorizonCrashManager.h"
+#include "Managers/HorizonFeedbackManager.h"
+#include "Managers/HorizonGiftCodeManager.h"
+#include "Managers/HorizonLeaderboardManager.h"
+#include "Managers/HorizonNewsManager.h"
+#include "Managers/HorizonRemoteConfigManager.h"
+#include "Managers/HorizonUserLogManager.h"
+
 void USeagullHorizonManager::Initialize(UHorizonSubsystem* InSubsystem)
 {
 	Subsystem = InSubsystem;
