@@ -20,7 +20,7 @@ public:
 	float XPLevelCurve = 1.4f;
 
 	// Validated Actions (only used when built with HORIZON_WITH_VALIDATED_ACTIONS=1)
-	bool bValidatedActionsEnabled = true;
+	bool bValidatedActionsEnabled = false;
 	FString ValidatedCoinsKey;
 
 	// Wave System

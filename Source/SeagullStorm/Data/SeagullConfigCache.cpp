@@ -12,9 +12,9 @@ void USeagullConfigCache::ParseFromConfigs(const TMap<FString, FString>& Configs
 	XPLevelCurve = ParseFloat(Configs, TEXT("xp_level_curve"), 1.4f);
 
 	// Validated Actions
-	bValidatedActionsEnabled = ParseBool(Configs, TEXT("validated_actions_enabled"), true);
-	const FString* CoinsKey = Configs.Find(TEXT("validated_coins_key"));
-	ValidatedCoinsKey = CoinsKey ? CoinsKey->TrimStartAndEnd() : FString();
+	// Same keys as the Unity and Godot examples.
+	bValidatedActionsEnabled = ParseBool(Configs, TEXT("validated_runs_enabled"), false);
+	ValidatedCoinsKey = ParseBool(Configs, TEXT("validated_runs_send_coins"), false) ? FString(TEXT("coins")) : FString();
 
 	// Wave System
 	WaveIntervalSeconds = ParseFloat(Configs, TEXT("wave_interval_seconds"), 15.f);

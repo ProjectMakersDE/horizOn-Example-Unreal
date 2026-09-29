@@ -118,7 +118,7 @@ To turn it on:
   "Run too short to rank." for `DURATION_TOO_SHORT`).
 - **Evidence**: `bAutoUploadEvidence` is on, so when the server asks for the log of a top run,
   the SDK uploads the same bytes right after the submit.
-- **Fallback**: without a ticket (switch off, `validated_actions_enabled` false, offline at run
+- **Fallback**: without a ticket (switch off, `validated_runs_enabled` false, offline at run
   start, rate limit, self-hosted server without the feature) the game uses the normal
   `SubmitScore`. A "validated only" board refuses that submit, and the Game Over screen says
   "Board takes validated runs only."
@@ -138,8 +138,9 @@ To turn it on:
    automatically and you review it under **Validated Actions**.
 4. **Coins (optional):** the game keeps its coins in Cloud Save. To let the server own them,
    define a value `coins` in the rules (`values`) and set the remote config key
-   `validated_coins_key` to `coins`. The coins of a run are then sent as earned value. Leave
-   the key empty otherwise: the server rejects a run that sends a value the rules do not define.
+   `validated_runs_send_coins` to `true`. The coins of a run are then sent as earned value
+   `coins`. Leave it off otherwise: the server rejects a run that sends a value the rules do
+   not define.
 
 ## Remote Config Reference
 
@@ -161,8 +162,8 @@ Only used when the game is built with Validated Actions (see [Validated Actions]
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `validated_actions_enabled` | bool | `true` | Start a run ticket and submit validated; `false` uses the normal score submit |
-| `validated_coins_key` | string | *(empty)* | Value key from the Validated Actions rules that receives the coins of a run; empty sends no earned values |
+| `validated_runs_enabled` | bool | `false` | Start a run ticket and submit validated; `false` uses the normal score submit. Same key as in the Unity and Godot examples |
+| `validated_runs_send_coins` | bool | `false` | Send the coins of a run as earned value `coins` (the rules must define that value) |
 
 ### Wave Spawning
 
