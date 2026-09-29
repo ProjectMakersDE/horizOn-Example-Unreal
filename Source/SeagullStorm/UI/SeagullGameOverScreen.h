@@ -18,6 +18,9 @@ public:
 
 	void SetRank(int32 Rank);
 
+	// Result line of the score submit, for example "Validated run" or why the server refused it.
+	void SetScoreStatus(const FString& Message, bool bIsError);
+
 protected:
 	UPROPERTY(meta = (BindWidgetOptional))
 	UTextBlock* ScoreText = nullptr;
@@ -36,6 +39,9 @@ protected:
 
 	UPROPERTY(meta = (BindWidgetOptional))
 	UTextBlock* BestText = nullptr;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	UTextBlock* ScoreStatusText = nullptr;
 
 	UPROPERTY(meta = (BindWidgetOptional))
 	UButton* PlayAgainButton = nullptr;

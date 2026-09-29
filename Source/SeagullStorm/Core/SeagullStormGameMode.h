@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/GameModeBase.h"
 #include "Core/SeagullTypes.h"
+#include "Horizon/SeagullInputLog.h"
 #include "SeagullStormGameMode.generated.h"
 
 class USeagullGameInstance;
@@ -38,6 +39,9 @@ public:
 
 	ESeagullGameScreen GetCurrentScreen() const { return CurrentScreen; }
 
+	// Records the picked level-up card in the run's input log (Validated Actions).
+	void RecordLevelUpChoice(int32 ChoiceIndex);
+
 	UPROPERTY(BlueprintAssignable)
 	FOnScreenChanged OnScreenChanged;
 
@@ -60,6 +64,23 @@ private:
 	USeagullHorizonManager* GetHorizonManager() const;
 
 	void CleanupRunActors();
+
+	// --- Validated Actions ---
+	// Leaderboard the run tickets are bound to: the game's default board.
+	static const TCHAR* ValidatedLeaderboardKey;
+
+	// Input log of the current run (seed plus inputs), hashed and submitted at game over.
+	FSeagullInputLog InputLog;
+
+	// Counts runs so a late ticket answer from an earlier run is ignored.
+	int32 RunSerial = 0;
+
+	// True once this run's ticket arrived.
+	bool bValidatedTicketReady = false;
+
+	void BeginValidatedRun();
+	void SubmitRunScore(USeagullHorizonManager* HM, int32 Score, int32 Wave, int32 CoinsEarned, float RunSeconds);
+	void ShowScoreStatus(const FString& Message, bool bIsError);
 
 	UFUNCTION()
 	void OnLevelUpTriggered();

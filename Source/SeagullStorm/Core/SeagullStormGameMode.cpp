@@ -19,6 +19,8 @@
 #include "Kismet/GameplayStatics.h"
 #include "EngineUtils.h"
 
+const TCHAR* ASeagullStormGameMode::ValidatedLeaderboardKey = TEXT("default");
+
 ASeagullStormGameMode::ASeagullStormGameMode()
 {
 	PrimaryActorTick.bCanEverTick = true;
@@ -86,6 +88,15 @@ void ASeagullStormGameMode::Tick(float DeltaTime)
 		if (GS)
 		{
 			GS->TickTimer(DeltaTime);
+
+			// Validated Actions: the input log keeps every change of the move stick.
+			ASeagullPlayerController* PC = Cast<ASeagullPlayerController>(
+				UGameplayStatics::GetPlayerController(GetWorld(), 0));
+			if (PC && GS->bRunActive)
+			{
+				const FVector2D Move = PC->GetMoveInput();
+				InputLog.RecordMove(GS->RunStats.Duration, static_cast<float>(Move.X), static_cast<float>(Move.Y));
+			}
 
 			// Add survival time to score (Fix 12: 1 point per second)
 			SurvivalScoreAccumulator += DeltaTime;
@@ -203,6 +214,9 @@ void ASeagullStormGameMode::StartRun()
 		// OnLevelUpTriggered multiple times per level-up.
 		GS->OnTriggerLevelUpChoices.AddUniqueDynamic(this, &ASeagullStormGameMode::OnLevelUpTriggered);
 	}
+
+	// Validated Actions: ask for a run ticket while the arena spawns
+	BeginValidatedRun();
 
 	// Reset enemy spawner
 	if (EnemySpawner)
@@ -324,27 +338,7 @@ void ASeagullStormGameMode::EndRun(bool bPlayerDied)
 		// Submit to horizOn
 		if (HM)
 		{
-			// Submit score first, then fetch rank in callback (Fix 5)
-			HM->SubmitScore(static_cast<int64>(GS->CurrentScore), [this, HM](bool bScoreSuccess)
-			{
-				if (bScoreSuccess)
-				{
-					// After score is submitted, fetch rank
-					HM->GetRank([this](bool bRankSuccess, const FHorizonLeaderboardEntry& Entry)
-					{
-						if (bRankSuccess && CachedGameOverWidget)
-						{
-							CachedGameOverWidget->SetRank(Entry.Position);
-						}
-					});
-				}
-				else if (HM)
-				{
-					HM->RecordException(
-						TEXT("SubmitScore failed"),
-						TEXT("SubmitScore returned bSuccess=false at EndRun"));
-				}
-			});
+			SubmitRunScore(HM, GS->CurrentScore, GS->CurrentWave, CoinsEarned, GS->RunStats.Duration);
 
 			HM->SaveData(GI->SaveData.ToJsonString(), [HM](bool bSaveSuccess)
 			{
@@ -386,6 +380,140 @@ void ASeagullStormGameMode::ReturnToHub()
 {
 	CleanupRunActors();
 	SwitchToScreen(ESeagullGameScreen::Hub);
+}
+
+void ASeagullStormGameMode::RecordLevelUpChoice(int32 ChoiceIndex)
+{
+	ASeagullStormGameState* GS = GetGameState<ASeagullStormGameState>();
+	if (GS && GS->bRunActive)
+	{
+		InputLog.RecordLevelUpChoice(GS->RunStats.Duration, ChoiceIndex);
+	}
+}
+
+void ASeagullStormGameMode::BeginValidatedRun()
+{
+	InputLog.Reset();
+	bValidatedTicketReady = false;
+	++RunSerial;
+
+	USeagullHorizonManager* HM = GetHorizonManager();
+	if (!HM) return;
+
+	// A ticket of an earlier run must never carry this run's score.
+	HM->DiscardValidatedRun();
+
+	USeagullGameInstance* GI = GetSeagullGameInstance();
+	const bool bEnabledByConfig = !GI || !GI->GetConfigCache() || GI->GetConfigCache()->bValidatedActionsEnabled;
+	if (!USeagullHorizonManager::IsValidatedActionsCompiledIn() || !bEnabledByConfig || !HM->IsSignedIn())
+	{
+		return; // normal SubmitScore at game over
+	}
+
+	const int32 Serial = RunSerial;
+	TWeakObjectPtr<ASeagullStormGameMode> WeakThis(this);
+	HM->StartValidatedRun(ValidatedLeaderboardKey, [WeakThis, Serial](bool bSuccess, int32 Seed, const FString& ErrorCode)
+	{
+		ASeagullStormGameMode* GM = WeakThis.Get();
+		if (!GM || Serial != GM->RunSerial) return; // answer for an earlier run
+
+		if (!bSuccess)
+		{
+			// NOT_SUPPORTED (self-hosted server), RUN_RATE_LIMITED, offline, ...: the run still counts
+			// through the normal submit, unless the board is "validated only".
+			UE_LOG(LogSeagullStorm, Warning, TEXT("Validated run not started (%s), using the normal score submit"), *ErrorCode);
+			return;
+		}
+
+		ASeagullStormGameState* RunState = GM->GetGameState<ASeagullStormGameState>();
+		const float RunSeconds = RunState ? RunState->RunStats.Duration : 0.f;
+
+		// Seed the random stream (enemy spawns, level-up cards) with the server seed and
+		// note it in the log, so a replay can rebuild the run.
+		FMath::RandInit(Seed);
+		GM->InputLog.SetSeed(Seed, RunSeconds);
+		GM->bValidatedTicketReady = true;
+		UE_LOG(LogSeagullStorm, Log, TEXT("Validated run started, seed %d"), Seed);
+	});
+}
+
+void ASeagullStormGameMode::SubmitRunScore(USeagullHorizonManager* HM, int32 Score, int32 Wave, int32 CoinsEarned, float RunSeconds)
+{
+	TWeakObjectPtr<ASeagullStormGameMode> WeakThis(this);
+
+	if (bValidatedTicketReady && HM->HasValidatedRun())
+	{
+		bValidatedTicketReady = false;
+		InputLog.Finish(RunSeconds);
+
+		// Stage "wave_N" lets the dashboard rules set limits per wave. Coins go along as an
+		// earned value only when the remote config names the value key of the rules.
+		USeagullGameInstance* GI = GetSeagullGameInstance();
+		const FString CoinsKey = (GI && GI->GetConfigCache()) ? GI->GetConfigCache()->ValidatedCoinsKey : FString();
+		const FString Stage = FString::Printf(TEXT("wave_%d"), Wave);
+
+		// The SDK hashes the log and, when the server asks for it, uploads it as evidence.
+		HM->SubmitValidatedScore(static_cast<int64>(Score), InputLog.GetBytes(), Stage, CoinsKey, CoinsEarned,
+			[WeakThis, HM](bool bSuccess, int64 Rank, const FString& ErrorCode)
+			{
+				ASeagullStormGameMode* GM = WeakThis.Get();
+				if (!GM) return;
+
+				if (bSuccess)
+				{
+					if (Rank > 0 && GM->CachedGameOverWidget)
+					{
+						GM->CachedGameOverWidget->SetRank(static_cast<int32>(Rank));
+					}
+					GM->ShowScoreStatus(TEXT("Validated run"), false);
+					return;
+				}
+
+				UE_LOG(LogSeagullStorm, Warning, TEXT("Validated run rejected: %s"), *ErrorCode);
+				HM->LogWarn(FString::Printf(TEXT("Validated run rejected: %s"), *ErrorCode));
+				GM->ShowScoreStatus(USeagullHorizonManager::DescribeScoreError(ErrorCode), true);
+			});
+		return;
+	}
+
+	// Normal submit: Validated Actions off or no ticket. Submit score first, then fetch rank (Fix 5)
+	HM->SubmitScore(static_cast<int64>(Score), [WeakThis, HM](bool bScoreSuccess)
+	{
+		if (bScoreSuccess)
+		{
+			// After score is submitted, fetch rank
+			HM->GetRank([WeakThis](bool bRankSuccess, const FHorizonLeaderboardEntry& Entry)
+			{
+				ASeagullStormGameMode* RankGM = WeakThis.Get();
+				if (bRankSuccess && RankGM && RankGM->CachedGameOverWidget)
+				{
+					RankGM->CachedGameOverWidget->SetRank(Entry.Position);
+				}
+			});
+			return;
+		}
+
+		// A "validated only" board refuses the normal submit: tell the player why.
+		const FString ErrorCode = HM->GetLastSubmitErrorCode();
+		ASeagullStormGameMode* GM = WeakThis.Get();
+		if (GM && (ErrorCode == TEXT("VALIDATED_SUBMIT_REQUIRED") || ErrorCode == TEXT("PLAYER_BANNED")))
+		{
+			GM->ShowScoreStatus(USeagullHorizonManager::DescribeScoreError(ErrorCode), true);
+			return;
+		}
+
+		HM->RecordException(
+			TEXT("SubmitScore failed"),
+			TEXT("SubmitScore returned bSuccess=false at EndRun"));
+	});
+}
+
+void ASeagullStormGameMode::ShowScoreStatus(const FString& Message, bool bIsError)
+{
+	if (CachedGameOverWidget)
+	{
+		CachedGameOverWidget->SetScoreStatus(Message, bIsError);
+	}
 }
 
 USeagullGameInstance* ASeagullStormGameMode::GetSeagullGameInstance() const

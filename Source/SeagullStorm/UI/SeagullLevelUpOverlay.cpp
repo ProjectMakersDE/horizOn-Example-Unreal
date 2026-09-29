@@ -129,6 +129,9 @@ void USeagullLevelUpOverlay::SelectChoice(int32 Index)
 		GM->AudioManager->PlaySFX(GM->AudioManager->SFX_UpgradeSelect, GetWorld());
 	}
 
+	// Validated Actions: the pick is part of the run's input log
+	if (GM) GM->RecordLevelUpChoice(Index);
+
 	// Apply to game state
 	ASeagullStormGameState* GS = GetWorld()->GetGameState<ASeagullStormGameState>();
 	if (GS)

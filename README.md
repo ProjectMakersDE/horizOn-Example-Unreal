@@ -21,6 +21,7 @@
 | 7 | **Feedback** | Bug reports and feature requests from in-game |
 | 8 | **User Logs** | Aggregated run summary logged at game over |
 | 9 | **Crash Reporting** | Session tracking, breadcrumbs, exception capture |
+| 10 | **Validated Actions** (optional, off by default) | Run ticket at run start, input log, server-checked score submit, rejection reason on the Game Over screen. See [Validated Actions](#validated-actions) |
 
 ## About the Game
 
@@ -81,6 +82,65 @@ Press **Play** in the Unreal editor.
 - **Leaderboard:** the hub shows the Top 10. Your own rank is shown on the Game Over
   screen after the score is submitted.
 
+## Validated Actions
+
+Validated Actions stop fake high scores without server code of your own. Every run gets a
+signed single use ticket from horizOn, the server checks the finished run against rules that
+only live on the server, and it can ask the best runs for their input log.
+
+### Status: off until the SDK update
+
+The integration needs a horizOn SDK for Unreal with `UHorizonValidatedActionsManager`
+(`Horizon->ValidatedActions`, TASK-883). The plugin vendored in `Plugins/HorizonSDK` (1.6.0)
+does not have it yet. The code is therefore behind the compile switch
+`HORIZON_WITH_VALIDATED_ACTIONS`, which `Source/SeagullStorm/SeagullStorm.Build.cs` sets to `0`.
+With `0` the game builds against the current plugin and submits scores exactly as before.
+
+To turn it on:
+
+1. Update `Plugins/HorizonSDK` to the first SDK release that ships Validated Actions (the
+   "Update SDK" workflow of this repository does this, or copy the plugin from the release).
+2. In `Source/SeagullStorm/SeagullStorm.Build.cs` set `bWithValidatedActions = true`.
+3. Rebuild the project.
+
+### What the game does
+
+- **Run start** (`ASeagullStormGameMode::BeginValidatedRun`): `StartRun("default")` binds the
+  ticket to the game's leaderboard. When the ticket arrives, the game seeds the random stream
+  (enemy spawns, level-up cards) with the server seed.
+- **Input log** (`FSeagullInputLog`): an 8 byte header (`SGS1` plus the seed) and 4 byte
+  records (tick in 1/20 s, kind, value) for every change of the move direction, every level-up
+  pick and the end of the run. A three minute run needs a few kilobytes; the log never grows
+  beyond 32 KB, the server's evidence limit.
+- **Game over** (`ASeagullStormGameMode::SubmitRunScore`): `SubmitValidated` with the score,
+  the stage `wave_N` and the log. The SDK hashes the log (SHA-256). The Game Over screen shows
+  "Validated run" and the rank, or a short reason when the server refused the run (for example
+  "Run too short to rank." for `DURATION_TOO_SHORT`).
+- **Evidence**: `bAutoUploadEvidence` is on, so when the server asks for the log of a top run,
+  the SDK uploads the same bytes right after the submit.
+- **Fallback**: without a ticket (switch off, `validated_actions_enabled` false, offline at run
+  start, rate limit, self-hosted server without the feature) the game uses the normal
+  `SubmitScore`. A "validated only" board refuses that submit, and the Game Over screen says
+  "Board takes validated runs only."
+
+### Dashboard setup
+
+1. **Rules:** open **Validated Actions** in the dashboard, pick the API key and set the rules.
+   A good start for Seagull Storm: `minDurationSeconds` 30 in the defaults, then a
+   `maxScorePerSecond` a bit above the best honest runs in the recent runs table (the score is
+   one point per second plus kills and collected XP). Stage rules use the keys `wave_1`,
+   `wave_2` and so on when single waves need their own limits.
+2. **Validated only board:** open **Leaderboards**, edit the `default` board and turn on
+   **Validated submissions only**. Normal score submits to it are then refused with
+   `VALIDATED_SUBMIT_REQUIRED`.
+3. **Top N evidence:** set the board's evidence top N (`evidenceTopN`, for example 10). The
+   server then asks every run that lands in the top 10 for its input log, the game uploads it
+   automatically and you review it under **Validated Actions**.
+4. **Coins (optional):** the game keeps its coins in Cloud Save. To let the server own them,
+   define a value `coins` in the rules (`values`) and set the remote config key
+   `validated_coins_key` to `coins`. The coins of a run are then sent as earned value. Leave
+   the key empty otherwise: the server rejects a run that sends a value the rules do not define.
+
 ## Remote Config Reference
 
 All values are optional — the game ships with sensible built-in defaults. Set these in the horizOn Dashboard under **Remote Config** to customize the game balance without updating the client.
@@ -94,6 +154,15 @@ All values are optional — the game ships with sensible built-in defaults. Set 
 | `coin_divisor` | int | `10` | Score is divided by this value to calculate coins earned |
 | `xp_per_kill_base` | int | `10` | Base XP unit for the level-up curve (the first level-up needs 5x this value) |
 | `xp_level_curve` | float | `1.4` | XP-to-next-level scaling exponent (higher = steeper curve) |
+
+### Validated Actions
+
+Only used when the game is built with Validated Actions (see [Validated Actions](#validated-actions)).
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `validated_actions_enabled` | bool | `true` | Start a run ticket and submit validated; `false` uses the normal score submit |
+| `validated_coins_key` | string | *(empty)* | Value key from the Validated Actions rules that receives the coins of a run; empty sends no earned values |
 
 ### Wave Spawning
 
@@ -181,7 +250,7 @@ Source/
     Weapons/                # WeaponBase, Feather, Screech, Dive, Gust, projectile
     Pickups/                # XP shell, coin
     UI/                     # Widget classes for all screens + shared widget styles
-    Horizon/                # HorizonManager facade
+    Horizon/                # HorizonManager facade, input log for Validated Actions
     Audio/                  # AudioManager
     Map/                    # Procedural arena generator
     Data/                   # SaveData, ConfigCache

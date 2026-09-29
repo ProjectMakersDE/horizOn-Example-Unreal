@@ -11,6 +11,11 @@ void USeagullConfigCache::ParseFromConfigs(const TMap<FString, FString>& Configs
 	XPPerKillBase = ParseInt(Configs, TEXT("xp_per_kill_base"), 10);
 	XPLevelCurve = ParseFloat(Configs, TEXT("xp_level_curve"), 1.4f);
 
+	// Validated Actions
+	bValidatedActionsEnabled = ParseBool(Configs, TEXT("validated_actions_enabled"), true);
+	const FString* CoinsKey = Configs.Find(TEXT("validated_coins_key"));
+	ValidatedCoinsKey = CoinsKey ? CoinsKey->TrimStartAndEnd() : FString();
+
 	// Wave System
 	WaveIntervalSeconds = ParseFloat(Configs, TEXT("wave_interval_seconds"), 15.f);
 	WaveEnemyCountBase = ParseInt(Configs, TEXT("wave_enemy_count_base"), 5);

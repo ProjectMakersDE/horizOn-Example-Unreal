@@ -76,6 +76,12 @@ void USeagullGameOverScreen::NativeOnInitialized()
 		SeagullWidgetStyles::TextFontSize, SeagullColors::LightText, TEXT("BestText"));
 	SeagullWidgetStyles::AddRow(Column, BestText, 4.f);
 
+	// Filled after the submit (Validated Actions result or rejection reason)
+	ScoreStatusText = SeagullWidgetStyles::MakeText(WidgetTree, TEXT(""),
+		SeagullWidgetStyles::SmallFontSize, SeagullColors::LightText, TEXT("ScoreStatusText"));
+	ScoreStatusText->SetAutoWrapText(true);
+	SeagullWidgetStyles::AddRow(Column, ScoreStatusText, 4.f);
+
 	UHorizontalBox* ButtonRow = WidgetTree->ConstructWidget<UHorizontalBox>(UHorizontalBox::StaticClass());
 	PlayAgainButton = SeagullWidgetStyles::MakeTextButton(WidgetTree, TEXT("Play Again"),
 		SeagullColors::Orange, SeagullColors::DarkText, SeagullWidgetStyles::TextFontSize, TEXT("PlayAgainButton"));
@@ -122,8 +128,23 @@ void USeagullGameOverScreen::LoadGameOverData()
 		if (BestText) BestText->SetText(FText::FromString(FString::Printf(TEXT("Best: %d"), GI->SaveData.Highscore)));
 	}
 
-	// Rank is set externally by GameMode after SubmitScore completes
+	// Rank and score status are set externally by GameMode after the submit completes
 	if (RankText) RankText->SetText(FText::FromString(TEXT("Rank: ...")));
+	if (ScoreStatusText) ScoreStatusText->SetText(FText::GetEmpty());
+}
+
+void USeagullGameOverScreen::SetScoreStatus(const FString& Message, bool bIsError)
+{
+	if (!ScoreStatusText) return;
+
+	ScoreStatusText->SetText(FText::FromString(Message));
+	ScoreStatusText->SetColorAndOpacity(FSlateColor(bIsError ? SeagullColors::CrabRed : SeagullColors::XPGold));
+
+	// A refused score has no rank
+	if (bIsError && RankText)
+	{
+		RankText->SetText(FText::FromString(TEXT("Rank: -")));
+	}
 }
 
 void USeagullGameOverScreen::SetRank(int32 Rank)

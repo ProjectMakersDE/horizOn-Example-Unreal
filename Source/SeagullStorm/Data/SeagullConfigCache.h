@@ -19,6 +19,10 @@ public:
 	int32 XPPerKillBase = 10;
 	float XPLevelCurve = 1.4f;
 
+	// Validated Actions (only used when built with HORIZON_WITH_VALIDATED_ACTIONS=1)
+	bool bValidatedActionsEnabled = true;
+	FString ValidatedCoinsKey;
+
 	// Wave System
 	float WaveIntervalSeconds = 15.f;
 	int32 WaveEnemyCountBase = 5;
