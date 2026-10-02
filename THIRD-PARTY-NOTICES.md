@@ -3,6 +3,18 @@
 The code and assets in this repository are licensed under the MIT License (see
 [LICENSE](LICENSE)), except for the files listed below, which keep their own licenses.
 
+## Shared generated artwork / October 2, 2026
+
+`Content/Textures/seagull_hero.png`, `enemy_crab.png`, `enemy_jellyfish.png`,
+`enemy_pirate.png`, `enemy_octopus.png`, `pickup_shell.png`, `pickup_coin.png`,
+`pickup_heart.png` and `arena_background.png` were generated for ProjectMakers
+through OpenRouter using `google/gemini-2.5-flash-image`. Sprite backgrounds were
+keyed into true RGBA and inspected against a dark backdrop; the arena is opaque.
+The square-headed character follows the supplied horizOn brand reference.
+`Content/Textures/asset-manifest.json` records hashes and provenance. This note
+records how the assets were made; it does not assert an attribution requirement
+from the image model. Original atlases and audio remain unchanged.
+
 ## Press Start 2P font
 
 - File: `Content/Fonts/PressStart2P-Regular.ttf`

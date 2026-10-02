@@ -21,3 +21,10 @@ Build/
 *.swp
 *.swo
 *~
+
+# Python verification/editor helpers
+__pycache__/
+*.pyc
+
+# Per-developer backend configuration
+Config/horizon_config.json

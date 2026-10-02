@@ -29,6 +29,9 @@ ASeagullPlayerPawn::ASeagullPlayerPawn()
 	// Sprite
 	SpriteComponent = CreateDefaultSubobject<UPaperFlipbookComponent>(TEXT("Sprite"));
 	SpriteComponent->SetupAttachment(RootComponent);
+	SpriteComponent->SetRelativeRotation(FRotator(-90.f, 0.f, 0.f)); // Paper2D XZ -> arena XY.
+	SpriteComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	SpriteComponent->SetRelativeLocation(FVector(0.f, 0.f, 2.f));
 
 	// Flipbooks (assets are created in the editor from seagull.png, see EDITOR_SETUP.md;
 	// all loads are null-guarded so the game runs without them)
@@ -51,7 +54,7 @@ ASeagullPlayerPawn::ASeagullPlayerPawn()
 	SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
 	SpringArm->SetupAttachment(RootComponent);
 	SpringArm->TargetArmLength = 500.f;
-	SpringArm->SetRelativeRotation(FRotator(-90.f, 0.f, 0.f));
+	SpringArm->SetRelativeRotation(FRotator(-90.f, -90.f, 0.f)); // Camera right is +X, up is +Y.
 	SpringArm->bDoCollisionTest = false;
 	SpringArm->bInheritPitch = false;
 	SpringArm->bInheritYaw = false;
@@ -60,7 +63,8 @@ ASeagullPlayerPawn::ASeagullPlayerPawn()
 	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	Camera->SetupAttachment(SpringArm);
 	Camera->ProjectionMode = ECameraProjectionMode::Orthographic;
-	Camera->OrthoWidth = SeagullConstants::BaseResolutionWidth;
+	Camera->OrthoWidth = 720.f;
+	Camera->bAutoCalculateOrthoPlanes = true;
 
 	// Components
 	HealthComponent = CreateDefaultSubobject<USeagullHealthComponent>(TEXT("Health"));
@@ -110,7 +114,14 @@ void ASeagullPlayerPawn::Tick(float DeltaTime)
 	Pos.Y = FMath::Clamp(Pos.Y, -HalfH, HalfH);
 	SetActorLocation(Pos);
 
-	UpdateFlipbookState(DeltaTime);
+    if (SpriteComponent)
+    {
+        const bool Moving = MovementComponent && MovementComponent->Velocity.SizeSquared() > 25.f;
+        const float Bob = FMath::Sin(GetWorld()->GetTimeSeconds() * (Moving ? 14.f : 5.f)) * (Moving ? 2.f : 0.7f);
+        SpriteComponent->SetRelativeLocation(FVector(0.f, 0.f, 4.f + Bob));
+        SpriteComponent->SetSpriteColor(HealthComponent->IsInvincible() ? SeagullColors::Orange : FLinearColor::White);
+    }
+    UpdateFlipbookState(DeltaTime);
 }
 
 void ASeagullPlayerPawn::UpdateFlipbookState(float DeltaTime)

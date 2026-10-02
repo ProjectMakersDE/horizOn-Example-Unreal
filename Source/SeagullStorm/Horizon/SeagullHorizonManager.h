@@ -3,6 +3,9 @@
 #include "CoreMinimal.h"
 #include "HorizonSubsystem.h"
 #include "Models/HorizonLeaderboardEntry.h"
+#include "Models/HorizonLeaderboardBoard.h"
+#include "Models/HorizonValidatedActions.h"
+#include "Models/HorizonPlayerProfile.h"
 #include "Models/HorizonNewsEntry.h"
 #include "SeagullHorizonManager.generated.h"
 
@@ -39,6 +42,14 @@ public:
 	void SubmitScore(int64 Score, TFunction<void(bool)> Callback);
 	void GetTop(int32 Limit, TFunction<void(bool, const TArray<FHorizonLeaderboardEntry>&)> Callback);
 	void GetRank(TFunction<void(bool, const FHorizonLeaderboardEntry&)> Callback);
+    void ListBoards(TFunction<void(bool, const TArray<FHorizonLeaderboardBoard>&)> Callback);
+    void GetAround(int32 Range, TFunction<void(bool, const TArray<FHorizonLeaderboardEntry>&)> Callback);
+    void GetValidatedState(TFunction<void(bool, const FHorizonPlayerState&, const FString&)> Callback);
+    void LoadLocalization(const FString& Lang, TFunction<void(bool, const TMap<FString, FString>&)> Callback);
+    void GetPlayerProfile(TFunction<void(bool, const FHorizonPlayerProfileResult&, const FString&)> Callback);
+    void SetPlayerAvatar(const FString& AvatarId, TFunction<void(bool, const FHorizonPlayerProfileResult&, const FString&)> Callback);
+    void SendOwnAccountEmail(const FString& TemplateSlug, TFunction<void(bool, const FString&)> Callback);
+    const FString& GetEvidenceStatus() const { return EvidenceStatus; }
 
 	// --- News ---
 	void LoadNews(int32 Limit, const FString& Lang, TFunction<void(bool, const TArray<FHorizonNewsEntry>&)> Callback);
@@ -61,8 +72,8 @@ public:
 	void RecordException(const FString& Error, const FString& StackTrace);
 
 	// --- Validated Actions ---
-	// Compiled only with HORIZON_WITH_VALIDATED_ACTIONS=1 (SeagullStorm.Build.cs). Without it
-	// every call reports "NOT_SUPPORTED" and the game keeps the normal SubmitScore path.
+	// Official 1.7.0 plugin: ticket, server-owned state and evidence.
+	// An unavailable ticket leaves the run in practice without score submission.
 	static bool IsValidatedActionsCompiledIn();
 
 	/** Asks the server for a run ticket bound to LeaderboardKey. Callback(bSuccess, Seed, ErrorCode). */
@@ -91,6 +102,8 @@ public:
 private:
 	UPROPERTY()
 	UHorizonSubsystem* Subsystem = nullptr;
+	FString EvidenceStatus = TEXT("No evidence requested");
+	FString GetLeaderboardKey() const;
 
 	UFUNCTION()
 	void HandleEvidenceUploaded(const FString& RunId, int32 Bytes);

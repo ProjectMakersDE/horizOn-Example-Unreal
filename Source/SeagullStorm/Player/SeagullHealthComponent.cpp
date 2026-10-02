@@ -11,14 +11,14 @@ USeagullHealthComponent::USeagullHealthComponent()
 
 void USeagullHealthComponent::SetMaxHP(int32 NewMax)
 {
-	MaxHP = NewMax;
-	CurrentHP = NewMax;
+	MaxHP = FMath::Max(1, NewMax);
+	CurrentHP = MaxHP;
 	OnHealthChanged.Broadcast(CurrentHP, MaxHP);
 }
 
 void USeagullHealthComponent::TakeDamage(int32 Amount)
 {
-	if (IsDead() || IsInvincible()) return;
+	if (IsDead() || IsInvincible() || Amount <= 0) return;
 
 	CurrentHP = FMath::Max(0, CurrentHP - Amount);
 	InvincibilityTimer = SeagullConstants::InvincibilityDuration;

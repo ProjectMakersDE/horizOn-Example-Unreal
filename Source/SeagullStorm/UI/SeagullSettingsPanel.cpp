@@ -81,7 +81,7 @@ void USeagullSettingsPanel::NativeConstruct()
 		if (HM)
 		{
 			UserInfoText->SetText(FText::FromString(
-				FString::Printf(TEXT("Signed in as: %s"), *HM->GetDisplayName())));
+				GI->bPracticeMode ? FString(TEXT("Offline practice / local progress")) : FString::Printf(TEXT("Signed in as: %s"), *HM->GetDisplayName())));
 		}
 	}
 }
@@ -95,6 +95,9 @@ void USeagullSettingsPanel::OnSignOutClicked()
 		if (HM)
 		{
 			HM->SignOut();
+			GI->bPracticeMode = false;
+			GI->bCloudSaveReady = false;
+			GI->SaveOwnerId.Empty();
 			GI->bSaveLoaded = false;
 			GI->bConfigLoaded = false;
 			GI->bNewsLoaded = false;

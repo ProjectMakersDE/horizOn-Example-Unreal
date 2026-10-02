@@ -1,6 +1,7 @@
 #include "UI/SeagullHUD.h"
 #include "UI/SeagullWidgetStyles.h"
 #include "Core/SeagullStormGameState.h"
+#include "Core/SeagullStormGameMode.h"
 #include "Core/SeagullPlayerController.h"
 #include "Core/SeagullTypes.h"
 #include "Player/SeagullPlayerPawn.h"
@@ -79,6 +80,14 @@ void USeagullHUD::NativeOnInitialized()
 	LevelText->SetJustification(ETextJustify::Right);
 	SeagullWidgetStyles::AddRow(TopRight, LevelText, 4.f);
 
+	RunStatusText = SeagullWidgetStyles::MakeText(WidgetTree, TEXT(""), 14, SeagullColors::Sand);
+	if (UCanvasPanelSlot* StatusSlot = RootCanvas->AddChildToCanvas(RunStatusText))
+	{
+		StatusSlot->SetAnchors(FAnchors(0.f, 1.f));
+		StatusSlot->SetPosition(FVector2D(40.f, -88.f));
+		StatusSlot->SetAutoSize(true);
+	}
+
 	// Bottom: XP bar stretched across the screen
 	XPBar = SeagullWidgetStyles::MakeBar(WidgetTree, SeagullColors::XPGold, TEXT("XPBar"));
 	XPBar->SetPercent(0.f);
@@ -110,6 +119,10 @@ void USeagullHUD::NativeConstruct()
 void USeagullHUD::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 {
 	Super::NativeTick(MyGeometry, InDeltaTime);
+	if (ASeagullStormGameMode* GM = Cast<ASeagullStormGameMode>(UGameplayStatics::GetGameMode(GetWorld())))
+	{
+		if (RunStatusText) RunStatusText->SetText(FText::FromString(GM->GetRunStatus()));
+	}
 
 	ASeagullStormGameState* GS = GetWorld()->GetGameState<ASeagullStormGameState>();
 	if (!GS) return;

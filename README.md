@@ -1,279 +1,162 @@
-# horizOn Example — Unreal Engine
+# Seagull Storm / Unreal
 
-> **Status: Under Construction**
-> The project does not run straight after cloning yet. The repository contains the C++ code and
-> the raw art, audio and font files, but not the editor-created map, sound, texture and
-> flipbook assets. Before the first Play, follow [EDITOR_SETUP.md](EDITOR_SETUP.md) once in
-> Unreal Engine 5.5.
+A compact coastal survival game and C++ reference for the horizOn SDK. Move the
+square-headed seagull, collect shells, choose weapon upgrades and survive the
+three-minute tide before defeating the octopus. Progress buys speed, damage,
+health and magnet upgrades for the next run.
 
-**Seagull Storm** is a mini Vampire Survivors-style roguelike built with Unreal Engine 5. It serves as a comprehensive example project demonstrating 9 [horizOn](https://horizon.pm) SDK features in a real, playable game.
+The refresh includes shared cel-shaded artwork, horizOn charcoal/cream/orange/teal
+styling, viewport-fitting title/SDK panels, immediate first waves, auto-aimed feathers, visible poison hazards,
+healing drops every twelve kills and queued upgrade choices. The original atlas
+files remain available for compatibility.
 
-## Features Demonstrated
+**Unreal readiness:** this repository contains source and loose PNG/OGG assets.
+The October 2, 2026 host has no Unreal installation. UnrealBuildTool compilation,
+the editor import script, Play In Editor and packaging remain unverified. There
+is no committed `MainMap.umap` or imported sprite/flipbook `.uasset` yet. Use the
+[editor setup](EDITOR_SETUP.md) to produce them on an Unreal 5.5 machine.
 
-| # | horizOn Feature | In-Game Usage |
-|---|----------------|---------------|
-| 1 | **Authentication** | Guest and Email sign-in/sign-up on title screen (Google/Apple buttons are shown but unavailable on desktop, see below) |
-| 2 | **Leaderboards** | Score submission, Top 10 display, player rank |
-| 3 | **Cloud Save** | Persistent coins, upgrades, highscore across sessions |
-| 4 | **Remote Config** | All game balancing (enemies, weapons, upgrades, wave timing) |
-| 5 | **News** | In-game news feed in hub and pause menu |
-| 6 | **Gift Codes** | Code redemption for coin rewards |
-| 7 | **Feedback** | Bug reports and feature requests from in-game |
-| 8 | **User Logs** | Aggregated run summary logged at game over |
-| 9 | **Crash Reporting** | Session tracking, breadcrumbs, exception capture |
-| 10 | **Validated Actions** (optional, off by default) | Run ticket at run start, input log, server-checked score submit, rejection reason on the Game Over screen. See [Validated Actions](#validated-actions) |
+## Start
 
-## About the Game
+1. Open `SeagullStorm.uproject` in Unreal **5.5** and compile `SeagullStormEditor`.
+2. Run `Scripts/setup_editor_assets.py` through **Tools > Execute Python Script**.
+   The project enables the bundled Paper2D/Python/editor scripting plugins.
+3. Restart the editor to refresh constructor asset caches, open
+   `/Game/Maps/MainMap`, and press Play.
+4. Select **Play offline practice**. No backend or account is required for this
+   game flow. Practice progress is stored at `Saved/SeagullStorm/practice.json`.
 
-You play as a seagull on a beach, surviving waves of crabs, jellyfish, and pirate seagulls. Auto-attack with upgradeable weapons, collect XP shells to level up, and try to survive the final boss — a giant octopus.
+For online examples, configure your own app's API key in the horizOn settings or
+an untracked local configuration. `Config/DefaultGame.ini` deliberately retains
+`YOUR_API_KEY`. Use a dedicated QA app/player when testing SDK writes. Never
+commit a real key, password or session token.
 
-- **Genre:** Vampire Survivors-style auto-attack roguelike
-- **Session Length:** 3–5 minutes
-- **Art Style:** Pixel art (32x32 sprites), placeholder graphics included
-- **Font:** Press Start 2P
+| Control | Action |
+|---|---|
+| WASD / arrows / gamepad left stick | Move |
+| Automatic | Fire feathers at nearby enemies; unlocked weapons fire on cooldown |
+| Mouse | Menus and upgrade cards |
+| Escape / gamepad Start / Pause button | Pause |
 
-## Getting Started
+## Official embedded SDK
 
-### Step 1 — Clone and Open
+`Plugins/HorizonSDK` is the complete, unmodified official **v1.7.0** plugin from
+commit `2f4b510be66353da8c00821ece04cd2b975b5ba5`, published October 1, 2026.
+It includes Validated Actions, server-owned state, evidence, player profiles,
+validated-only leaderboard handling, anonymous-auth restoration and the POST
+binary-cloud-load fix from `develop` commit `68002c3`. No unpublished SDK patch is
+needed. `SDK-SOURCE.json` records every official plugin file's SHA-256.
 
-1. Clone this repository
-2. Open the `.uproject` file with **Unreal Engine 5.5**
-3. Follow [EDITOR_SETUP.md](EDITOR_SETUP.md) to create the editor-only assets
-   (map, audio imports, sprites/flipbooks). This step is currently required; all code is
-   C++ and needs no editor work
+The example enables `HORIZON_WITH_VALIDATED_ACTIONS=1`. The release synchronization
+workflow replaces the entire plugin on future SDK releases. Example configuration
+lives outside the plugin and is preserved.
 
-### Step 2 — Create a horizOn Account and API Key
+## Run and save boundaries
 
-1. Go to [horizon.pm](https://horizon.pm) and create a free account
-2. Open the **Dashboard** and create a new project
-3. Navigate to **Settings > API Keys** and generate an API key
-4. Copy the API key
+- **Practice:** no ticket request, score submission or cloud-save write. Local
+  progression is separate from signed-in progression. Practice resets gameplay
+  configuration to local defaults.
+- **Online validation:** the arena and run clock start after the ticket and server
+  seed arrive. The HUD shows that the result is pending. Game over displays server
+  acceptance, refusal or connection failure. Failed ticket acquisition starts a
+  practice run and never falls back to ordinary score submission.
+- **Ordinary boards:** `validated_runs_enabled=false` explicitly selects the
+  ordinary SDK score path. Its result is labeled as unvalidated. A validated-only
+  board can reject this request with `VALIDATED_SUBMIT_REQUIRED`.
+- **Cloud Save:** loads and writes use the signed-in player's session. A failed
+  download does not overwrite old cloud progress with defaults. Newly created
+  players may initialize a new cloud save. Restored players require a successful
+  load before writes; the SDK currently reports both missing saves and transport
+  errors through the same `false` callback, so this case stays read-only.
+- Late callbacks cannot overwrite a newer run or an explicit practice choice.
+  Cloud loads are discarded if the owner changes or gameplay has begun.
 
-### Step 3 — Configure the SDK
+The input evidence format is shared with Unity/Godot: a version byte, little-endian
+seed and tick-delta events for movement, upgrade choices and run end, capped at
+32 KiB. Truncated logs are not submitted. This records client input; physics,
+frame timing, active balance configuration and persistent upgrades are not a
+complete deterministic replay. Server rule validation and evidence acceptance
+do not establish authoritative replay verification.
 
-The horizOn SDK is already included as a plugin at `Plugins/HorizonSDK/`. It is
-configured through `Config/DefaultGame.ini` (section `[/Script/HorizonSDK.HorizonConfig]`).
+When requested by the server, the official SDK uploads the same input bytes as
+evidence. The SDK tools panel shows the upload outcome independently of score
+acceptance. Earned server-owned values are sent only when configured rules define
+`coins`; the read-only balances panel shows server values separately from client
+progression coins.
 
-1. Make sure the plugin is enabled in **Edit > Plugins > horizOn SDK**
-2. Go to **Edit > Project Settings > horizOn SDK** and paste your API key
-   (this writes it into `Config/DefaultGame.ini`)
-3. Alternatively, edit `Config/DefaultGame.ini` directly and replace
-   `ApiKey=YOUR_API_KEY` with your key; the regional `Hosts` list is already set up
+## SDK coverage
 
-### Step 4 — Set Up Remote Config (Optional)
+The hub's **SDK tools** panel exposes optional operations with pending/success/error
+states. Read-only demonstrations do not manufacture server configuration. Empty
+catalogs, unsupported capabilities and unranked players have visible outcomes.
 
-The game works out of the box with built-in defaults. To customize the game balance, set up Remote Config variables in the horizOn Dashboard under **Remote Config**. See the [Remote Config Reference](#remote-config-reference) below for all available keys.
+| Feature | Integration / visible entry point |
+|---|---|
+| Connection | Startup connection and configured app hosts; local practice remains available |
+| Authentication | Guest signup, email signup/sign-in, session restore and sign-out; Apple native flow on iOS |
+| Remote Config | Hub loads gameplay/upgrade settings; practice uses complete local defaults |
+| Cloud Save | Session-bound hub load and run-end save; explicit Save progress in SDK tools |
+| Leaderboards | Board list including validated-only flag, selected board key, fresh Top 10, neighbors and own rank |
+| Validated Actions | Run ticket/seed, rule-checked submit, server state and automatic evidence-upload outcome |
+| Player Profile | Read current avatar/frame/badges and cosmetics catalog; select an available avatar while preserving other slots |
+| Localization | SDK tools fetch English/German strings and display returned keys; game UI itself remains English |
+| News | Hub and pause menu display app news |
+| Gift Codes | Explicit validation/redeem panel; unavailable in practice |
+| Feedback | Explicit category/title/message form; unavailable in practice |
+| User Logs / Crash Reporting | Online run summaries, balancing warnings, breadcrumbs, custom keys and handled failures; no deliberate crash |
+| Email Sending | Explicit template-slug field and **Send template to my account**; requires an email account and configured app template |
 
-### Step 5 — Run
+Google's authorization-code acquisition flow is not implemented in this desktop
+example; the unused Google button is hidden. Apple sign-in is exposed only on iOS.
+Email sending never happens automatically and was not exercised during this
+refresh. Template variables are empty in this minimal demonstration.
 
-Press **Play** in the Unreal editor.
+## Remote Config
 
-## Gameplay Notes and Known Limitations
+All settings have offline defaults. These existing keys control the ranked flow:
 
-- **Editor assets:** the map, sound, texture and flipbook assets are not in the
-  repository yet. Create them once with [EDITOR_SETUP.md](EDITOR_SETUP.md) before the
-  first Play.
-- **Sign-in:** the title screen shows Guest, Google, Apple, Email and Create Account.
-  On desktop platforms the Google and Apple buttons report "not available on this
-  platform": the SDK's Google flow needs a pre-obtained OAuth authorization code (there
-  is no desktop browser flow), and the Apple flow only runs on iOS.
-- **Quit Run** in the pause menu ends the run through the normal end-of-run path: the
-  score is submitted and the Game Over screen opens.
-- **Leaderboard:** the hub shows the Top 10. Your own rank is shown on the Game Over
-  screen after the score is submitted.
+| Key | Default | Behavior |
+|---|---|---|
+| `validated_runs_enabled` | `true` | Request a ticket and submit through Validated Actions |
+| `validated_runs_board` | `default` | Board key shared by run tickets, score submissions and leaderboard reads |
+| `validated_runs_send_coins` | `false` | Send earned `coins` only with configured server value rules |
+| `run_duration_seconds` | `180` | Survival phase duration |
+| `boss_wave_enabled` | `true` | Spawn octopus after the survival phase |
+| `wave_interval_seconds` | `15` | Subsequent wave cadence; first wave starts immediately |
+| `wave_enemy_count_base` | `5` | Initial enemy count |
+| `wave_enemy_count_growth` | `1.3` | Wave growth, capped at 80 spawns per wave |
 
-## Validated Actions
+Enemy, weapon, upgrade and card keys are defined in
+`Source/SeagullStorm/Data/SeagullConfigCache.cpp`. Server rules can use stages
+`wave_N`; configure those stages before expecting stage-based validation to pass.
+The example never creates backend boards, rules, templates, cosmetics or data.
 
-Validated Actions stop fake high scores without server code of your own. Every run gets a
-signed single use ticket from horizOn, the server checks the finished run against rules that
-only live on the server, and it can ask the best runs for their input log.
+## Verification
 
-### Status: off until the SDK update
+Engine-independent checks:
 
-The integration needs a horizOn SDK for Unreal with `UHorizonValidatedActionsManager`
-(`Horizon->ValidatedActions`, TASK-883). The plugin vendored in `Plugins/HorizonSDK` (1.6.0)
-does not have it yet. The code is therefore behind the compile switch
-`HORIZON_WITH_VALIDATED_ACTIONS`, which `Source/SeagullStorm/SeagullStorm.Build.cs` sets to `0`.
-With `0` the game builds against the current plugin and submits scores exactly as before.
-
-To turn it on:
-
-1. Update `Plugins/HorizonSDK` to the first SDK release that ships Validated Actions (the
-   "Update SDK" workflow of this repository does this, or copy the plugin from the release).
-2. In `Source/SeagullStorm/SeagullStorm.Build.cs` set `bWithValidatedActions = true`.
-3. Rebuild the project.
-
-### What the game does
-
-- **Run start** (`ASeagullStormGameMode::BeginValidatedRun`): `StartRun` binds the ticket to
-  the board from `validated_runs_board` (default `default`, the game's leaderboard). When the ticket arrives, the game seeds the random stream
-  (enemy spawns, level-up cards) with the server seed.
-- **Input log** (`FSeagullInputLog`, format v1, the same as in the Unity and Godot examples):
-  a 5 byte header (version 1 plus the seed) and 3 byte events (ticks at 60 per second since
-  the previous event, code). Codes: movement bits `0x00` to `0x0F` (1 left, 2 right, 4 up,
-  8 down) when the direction changes or the gap reaches 65535 ticks, `0x10` plus the card
-  index for a level-up pick, `0xFF` for the end of the run. A three minute run needs a few
-  kilobytes; the log never grows beyond 32 KB, the server's evidence limit.
-- **Game over** (`ASeagullStormGameMode::SubmitRunScore`): `SubmitValidated` with the score,
-  the stage `wave_N` and the log. The SDK hashes the log (SHA-256). The Game Over screen shows
-  "Validated run" and the rank, or a short reason when the server refused the run (for example
-  "Run too short to rank." for `DURATION_TOO_SHORT`).
-- **Evidence**: `bAutoUploadEvidence` is on, so when the server asks for the log of a top run,
-  the SDK uploads the same bytes right after the submit.
-- **Fallback**: without a ticket (switch off, `validated_runs_enabled` false, offline at run
-  start, rate limit, self-hosted server without the feature) the game uses the normal
-  `SubmitScore`. A "validated only" board refuses that submit, and the Game Over screen says
-  "Board takes validated runs only."
-
-### Dashboard setup
-
-1. **Rules:** open **Validated Actions** in the dashboard, pick the API key and set the rules.
-   A good start for Seagull Storm: `minDurationSeconds` 30 in the defaults, then a
-   `maxScorePerSecond` a bit above the best honest runs in the recent runs table (the score is
-   one point per second plus kills and collected XP). Stage rules use the keys `wave_1`,
-   `wave_2` and so on when single waves need their own limits.
-2. **Validated only board:** open **Leaderboards**, edit the `default` board and turn on
-   **Validated submissions only**. Normal score submits to it are then refused with
-   `VALIDATED_SUBMIT_REQUIRED`.
-3. **Top N evidence:** set the board's evidence top N (`evidenceTopN`, for example 10). The
-   server then asks every run that lands in the top 10 for its input log, the game uploads it
-   automatically and you review it under **Validated Actions**.
-4. **Coins (optional):** the game keeps its coins in Cloud Save. To let the server own them,
-   define a value `coins` in the rules (`values`) and set the remote config key
-   `validated_runs_send_coins` to `true`. The coins of a run are then sent as earned value
-   `coins`. Leave it off otherwise: the server rejects a run that sends a value the rules do
-   not define.
-
-## Remote Config Reference
-
-All values are optional — the game ships with sensible built-in defaults. Set these in the horizOn Dashboard under **Remote Config** to customize the game balance without updating the client.
-
-### General
-
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `run_duration_seconds` | int | `180` | Duration of a survival run in seconds before the boss spawns |
-| `boss_wave_enabled` | bool | `true` | Whether a boss wave spawns when the timer runs out |
-| `coin_divisor` | int | `10` | Score is divided by this value to calculate coins earned |
-| `xp_per_kill_base` | int | `10` | Base XP unit for the level-up curve (the first level-up needs 5x this value) |
-| `xp_level_curve` | float | `1.4` | XP-to-next-level scaling exponent (higher = steeper curve) |
-
-### Validated Actions
-
-Only used when the game is built with Validated Actions (see [Validated Actions](#validated-actions)).
-
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `validated_runs_enabled` | bool | `false` | Start a run ticket and submit validated; `false` uses the normal score submit. Same key as in the Unity and Godot examples |
-| `validated_runs_board` | string | `default` | Leaderboard the run tickets are bound to |
-| `validated_runs_send_coins` | bool | `false` | Send the coins of a run as earned value `coins` (the rules must define that value) |
-
-### Wave Spawning
-
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `wave_interval_seconds` | float | `15.0` | Seconds between enemy waves |
-| `wave_enemy_count_base` | int | `5` | Number of enemies in the first wave |
-| `wave_enemy_count_growth` | float | `1.3` | Enemy count multiplier per wave (e.g. 1.3 = +30% each wave) |
-| `wave_boss_hp` | int | `500` | Boss hit points |
-
-### Enemy Stats
-
-Each enemy type (`crab`, `jellyfish`, `pirate`) has four config keys following the pattern `enemy_{type}_{stat}` with per-type defaults:
-
-| Type | `enemy_{type}_hp` (int) | `enemy_{type}_speed` (float) | `enemy_{type}_damage` (int) | `enemy_{type}_xp` (int) |
-|------|------------------------|------------------------------|-----------------------------|--------------------------|
-| `crab` | `30` | `40.0` | `10` | `10` |
-| `jellyfish` | `50` | `60.0` | `15` | `20` |
-| `pirate` | `40` | `100.0` | `20` | `25` |
-
-`hp` = hit points, `speed` = movement speed (units/sec), `damage` = melee attack damage, `xp` = XP dropped on death. The boss has no `enemy_boss_*` keys; its hit points come from `wave_boss_hp` above.
-
-**Example keys:** `enemy_crab_hp`, `enemy_jellyfish_speed`, `enemy_pirate_damage`
-
-### Weapon Stats
-
-Each weapon type (`feather`, `screech`, `dive`, `gust`) has `weapon_{type}_{stat}` keys; not every stat exists for every weapon:
-
-| Weapon | `_damage` (float) | `_cooldown` (float, sec) | Extra key | Extra default |
-|--------|-------------------|--------------------------|-----------|---------------|
-| `feather` | `20.0` | `0.8` | `weapon_feather_projectiles` (int) | `1` |
-| `screech` | `15.0` | `2.0` | `weapon_screech_radius` (float, AoE radius) | `80.0` |
-| `dive` | `50.0` | `3.0` | `weapon_dive_range` (float, dash range) | `120.0` |
-| `gust` | `10.0` | `2.5` | `weapon_gust_knockback` (float, force) | `60.0` |
-
-**Example keys:** `weapon_feather_damage`, `weapon_screech_cooldown`, `weapon_dive_range`
-
-### Upgrade System
-
-Each upgrade type (`speed`, `damage`, `hp`, `magnet`) has three config keys — `upgrade_{type}_max` (int), `upgrade_{type}_costs` (JSON array, coin cost to buy the NEXT level, index = current level) and `upgrade_{type}_values` (JSON array, stat value at each level, index = level):
-
-| Upgrade | Max | Costs | Values |
-|---------|-----|-------|--------|
-| `speed` | `4` | `[100, 300, 600, 1000]` | `[1.0, 1.1, 1.2, 1.35, 1.5]` (multiplier) |
-| `damage` | `4` | `[100, 300, 600, 1000]` | `[1.0, 1.15, 1.3, 1.5, 1.8]` (multiplier) |
-| `hp` | `3` | `[150, 400, 800]` | `[100, 130, 170, 220]` (max HP) |
-| `magnet` | `2` | `[200, 500]` | `[50, 80, 120]` (pickup radius) |
-
-**Example keys:** `upgrade_speed_max`, `upgrade_damage_costs`, `upgrade_hp_values`
-
-### Level-Up Choices
-
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `levelup_choices` | int | `3` | Number of choices shown on level up |
-| `levelup_pool` | JSON array | *(built-in pool)* | Pool of available upgrades with weighted random selection |
-
-**`levelup_pool` format** — each entry is an object with `id`, `type`, and `weight`:
-```json
-[
-  {"id": "feather_dmg",   "type": "weapon_upgrade", "weight": 3},
-  {"id": "feather_speed", "type": "weapon_upgrade", "weight": 2},
-  {"id": "screech_new",   "type": "weapon_new",     "weight": 1},
-  {"id": "dive_new",      "type": "weapon_new",     "weight": 1},
-  {"id": "gust_new",      "type": "weapon_new",     "weight": 1},
-  {"id": "move_speed",    "type": "stat_boost",     "weight": 2},
-  {"id": "max_hp",        "type": "stat_boost",     "weight": 2},
-  {"id": "xp_magnet",     "type": "stat_boost",     "weight": 1}
-]
+```sh
+python3 Scripts/verify_project.py
+python3 Tests/run_input_log_test.py
+python3 Tests/run_sdk_contracts.py --sdk-source /path/to/horizOn-SDK-Unreal
 ```
 
-## Project Structure
+The input-log check compiles the real example implementation against a small
+array boundary. The SDK runner uses official v1.7.0 fixtures against this embedded
+plugin: leaderboard, gift code, player profile, Validated Actions and actual
+anonymous-auth/cloud-save production methods. All passed on October 2, 2026.
+These checks make no backend calls and do not compile Unreal game modules.
 
-```
-Config/                     # Engine and game configuration
-Content/                    # Assets (sprites, fonts, audio)
-EDITOR_SETUP.md             # Editor-only asset creation steps (map, imports, flipbooks)
-Plugins/
-  HorizonSDK/              # horizOn SDK plugin (auto-updated)
-Source/
-  SeagullStorm/
-    Core/                   # GameMode, GameState, GameInstance, PlayerController, types
-    Player/                 # PlayerPawn, Health & XP components
-    Enemies/                # EnemyBase, Crab, Jellyfish, Pirate, Boss, spawner, poison zone
-    Weapons/                # WeaponBase, Feather, Screech, Dive, Gust, projectile
-    Pickups/                # XP shell, coin
-    UI/                     # Widget classes for all screens + shared widget styles
-    Horizon/                # HorizonManager facade, input log for Validated Actions
-    Audio/                  # AudioManager
-    Map/                    # Procedural arena generator
-    Data/                   # SaveData, ConfigCache
-SeagullStorm.uproject       # Project file
-```
+Next verification on Unreal 5.5: compile the editor target, run the asset bootstrap,
+inspect sprites and map, play a practice run through upgrades/death/retry,
+exercise a QA player's ticket/submit/rank/state flow, then package and launch a
+build. All remain pending; no Unreal playability or packaging result is claimed.
 
-## Requirements
+## Assets and license
 
-- [Unreal Engine 5.5](https://www.unrealengine.com/)
-- [horizOn Account](https://horizon.pm) (free tier works)
-- [horizOn SDK for Unreal](https://github.com/ProjectMakersDE/horizOn-SDK-Unreal)
+New shared artwork was generated through OpenRouter with
+`google/gemini-2.5-flash-image` on October 2, 2026. Its transparent sprite backgrounds
+were keyed into true RGBA and visually inspected; the arena is opaque.
+`Content/Textures/asset-manifest.json` records provenance and file hashes.
 
-## Related Projects
-
-- [horizOn-SDK-Unreal](https://github.com/ProjectMakersDE/horizOn-SDK-Unreal) — The SDK this example uses
-- [horizOn-Example-Godot](https://github.com/ProjectMakersDE/horizOn-Example-Godot) — Same game in Godot
-- [horizOn-Example-Unity](https://github.com/ProjectMakersDE/horizOn-Example-Unity) — Same game in Unity
-
-## License
-
-[MIT](LICENSE). The bundled Press Start 2P font is licensed under the SIL Open Font License 1.1,
-see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+Code: [MIT](LICENSE). Font and artwork provenance: [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).

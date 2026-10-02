@@ -1,5 +1,7 @@
 #include "Map/SeagullMapGenerator.h"
 #include "Core/SeagullTypes.h"
+#include "PaperSprite.h"
+#include "PaperSpriteComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "Materials/MaterialInstanceDynamic.h"
@@ -7,78 +9,56 @@
 
 ASeagullMapGenerator::ASeagullMapGenerator()
 {
-	PrimaryActorTick.bCanEverTick = false;
-	RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("Root"));
+    PrimaryActorTick.bCanEverTick = false;
+    RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("Root"));
 }
 
 void ASeagullMapGenerator::BeginPlay()
 {
-	Super::BeginPlay();
-	GenerateArena();
+    Super::BeginPlay();
+    GenerateArena();
 }
 
 void ASeagullMapGenerator::GenerateArena()
 {
-	// Generate a simple sand arena with water border
-	float TileSize = 16.f;
-	float ArenaW = SeagullConstants::ArenaWidth;
-	float ArenaH = SeagullConstants::ArenaHeight;
-	float BorderWidth = TileSize * 2;
-
-	int32 TilesX = static_cast<int32>((ArenaW + BorderWidth * 2) / TileSize);
-	int32 TilesY = static_cast<int32>((ArenaH + BorderWidth * 2) / TileSize);
-
-	float StartX = -(ArenaW + BorderWidth * 2) * 0.5f;
-	float StartY = -(ArenaH + BorderWidth * 2) * 0.5f;
-
-	for (int32 y = 0; y < TilesY; y++)
-	{
-		for (int32 x = 0; x < TilesX; x++)
-		{
-			FVector Pos(StartX + x * TileSize + TileSize * 0.5f,
-				StartY + y * TileSize + TileSize * 0.5f, -1.f);
-
-			// Determine if border (water) or arena (sand)
-			float LocalX = Pos.X + ArenaW * 0.5f;
-			float LocalY = Pos.Y + ArenaH * 0.5f;
-
-			bool bIsBorder = (LocalX < 0 || LocalX > ArenaW ||
-				LocalY < 0 || LocalY > ArenaH);
-
-			SpawnGroundTile(Pos, bIsBorder ? SeagullColors::Water : SeagullColors::Sand);
-		}
-	}
-
-	UE_LOG(LogSeagullStorm, Log, TEXT("Arena generated: %dx%d tiles"), TilesX, TilesY);
+    UPaperSprite* ArenaSprite = LoadObject<UPaperSprite>(nullptr, TEXT("/Game/Sprites/SP_Arena"));
+    if (ArenaSprite)
+    {
+        UPaperSpriteComponent* Background = NewObject<UPaperSpriteComponent>(this, TEXT("ArenaArtwork"));
+        Background->SetupAttachment(RootComponent);
+        Background->SetSprite(ArenaSprite);
+        Background->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+        Background->SetRelativeRotation(FRotator(-90.f, 0.f, 0.f));
+        Background->SetRelativeLocation(FVector(0.f, 0.f, -5.f));
+        const FVector Extents = Background->CalcBounds(FTransform::Identity).BoxExtent;
+        Background->SetRelativeScale3D(FVector(
+            SeagullConstants::ArenaWidth / FMath::Max(1.f, Extents.X * 2.f), 1.f,
+            SeagullConstants::ArenaHeight / FMath::Max(1.f, Extents.Z * 2.f)));
+        Background->RegisterComponent();
+        return;
+    }
+    // Two large planes replace thousands of individual ground components.
+    SpawnGroundTile(FVector(0.f, 0.f, -6.f), SeagullColors::Water,
+        FVector2D(SeagullConstants::ArenaWidth + 160.f, SeagullConstants::ArenaHeight + 160.f));
+    SpawnGroundTile(FVector(0.f, 0.f, -5.f), SeagullColors::Sand,
+        FVector2D(SeagullConstants::ArenaWidth, SeagullConstants::ArenaHeight));
+    UE_LOG(LogSeagullStorm, Warning, TEXT("Arena artwork unavailable. Run Scripts/setup_editor_assets.py in Unreal Editor."));
 }
 
-void ASeagullMapGenerator::SpawnGroundTile(const FVector& Position, const FLinearColor& Color)
+void ASeagullMapGenerator::SpawnGroundTile(const FVector& Position, const FLinearColor& Color, const FVector2D& Size)
 {
-	// Spawn a simple static mesh plane scaled to tile size for arena visualization
-	UStaticMeshComponent* Tile = NewObject<UStaticMeshComponent>(this);
-	if (!Tile) return;
-
-	Tile->SetupAttachment(RootComponent);
-	Tile->RegisterComponent();
-	Tile->SetWorldLocation(Position);
-	Tile->SetWorldScale3D(FVector(0.16f, 0.16f, 1.f)); // Scale default 100cm plane to 16cm
-
-	// Use engine's default plane mesh
-	static UStaticMesh* PlaneMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Plane.Plane"));
-	if (PlaneMesh)
-	{
-		Tile->SetStaticMesh(PlaneMesh);
-	}
-
-	// Create and set colored material. The engine BasicShapeMaterial exposes its
-	// tint as "Color", other base materials use "BaseColor"; set both so the
-	// tiles are tinted regardless of which material the plane mesh carries.
-	UMaterialInstanceDynamic* Mat = UMaterialInstanceDynamic::Create(
-		Tile->GetMaterial(0), this);
-	if (Mat)
-	{
-		Mat->SetVectorParameterValue(TEXT("BaseColor"), Color);
-		Mat->SetVectorParameterValue(TEXT("Color"), Color);
-		Tile->SetMaterial(0, Mat);
-	}
+    UStaticMeshComponent* Tile = NewObject<UStaticMeshComponent>(this);
+    Tile->SetupAttachment(RootComponent);
+    Tile->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    Tile->SetStaticMesh(LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Plane.Plane")));
+    Tile->SetRelativeLocation(Position);
+    Tile->SetRelativeScale3D(FVector(Size.X / 100.f, Size.Y / 100.f, 1.f));
+    UMaterialInterface* Base = LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/Materials/M_ArenaColor"));
+    if (Base)
+    {
+        UMaterialInstanceDynamic* Material = UMaterialInstanceDynamic::Create(Base, this);
+        Material->SetVectorParameterValue(TEXT("Color"), Color);
+        Tile->SetMaterial(0, Material);
+    }
+    Tile->RegisterComponent();
 }

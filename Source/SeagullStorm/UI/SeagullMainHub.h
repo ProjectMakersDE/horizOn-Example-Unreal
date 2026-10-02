@@ -17,6 +17,7 @@ class USeagullMainHub : public UUserWidget
 public:
 	virtual void NativeOnInitialized() override;
 	virtual void NativeConstruct() override;
+	virtual void NativeTick(const FGeometry& Geometry, float DeltaTime) override;
 
 	// Re-renders coins/highscore/upgrade labels from GameInstance state. Public so
 	// out-of-hub changes (e.g. a gift code redemption) can refresh the display.
@@ -84,6 +85,15 @@ private:
 
 	UFUNCTION()
 	void OnSettingsClicked();
+
+	UFUNCTION()
+	void OnSDKClicked();
+
+	UPROPERTY()
+	UTextBlock* SessionText = nullptr;
+
+	UPROPERTY()
+	UButton* SDKButton = nullptr;
 
 	void LoadHubData();
 

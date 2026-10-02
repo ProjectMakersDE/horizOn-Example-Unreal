@@ -53,20 +53,28 @@ void ASeagullStormGameMode::BeginPlay()
 		}
 	}
 
+	SwitchToScreen(ESeagullGameScreen::Title);
+
 	// Try session restore
 	if (HM)
 	{
-		HM->RestoreSession([this](bool bSuccess)
-		{
+		TWeakObjectPtr<ASeagullStormGameMode> WeakThis(this);
+        HM->RestoreSession([WeakThis](bool bSuccess)
+        {
+            ASeagullStormGameMode* Self = WeakThis.Get();
+            if (!Self || Self->CurrentScreen != ESeagullGameScreen::Title) return;
+            USeagullGameInstance* GI = Self->GetSeagullGameInstance();
+            if (!GI || GI->bPracticeMode) return;
 			if (bSuccess)
 			{
+				GI->BeginOnlineSession();
 				UE_LOG(LogSeagullStorm, Log, TEXT("Session restored, going to Hub"));
-				SwitchToScreen(ESeagullGameScreen::Hub);
+				Self->SwitchToScreen(ESeagullGameScreen::Hub);
 			}
 			else
 			{
 				UE_LOG(LogSeagullStorm, Log, TEXT("No session to restore, showing Title"));
-				SwitchToScreen(ESeagullGameScreen::Title);
+				Self->SwitchToScreen(ESeagullGameScreen::Title);
 			}
 		});
 	}
@@ -144,6 +152,12 @@ void ASeagullStormGameMode::Tick(float DeltaTime)
 
 void ASeagullStormGameMode::SwitchToScreen(ESeagullGameScreen NewScreen)
 {
+	if (NewScreen == ESeagullGameScreen::Title)
+	{
+		++RunSerial;
+		bAwaitingRunTicket = false;
+		if (USeagullHorizonManager* HM = GetHorizonManager()) HM->DiscardValidatedRun();
+	}
 	ESeagullGameScreen OldScreen = CurrentScreen;
 	CurrentScreen = NewScreen;
 
@@ -199,23 +213,26 @@ void ASeagullStormGameMode::SwitchToScreen(ESeagullGameScreen NewScreen)
 
 void ASeagullStormGameMode::StartRun()
 {
-	USeagullGameInstance* GI = GetSeagullGameInstance();
+    if (bAwaitingRunTicket || CurrentScreen == ESeagullGameScreen::Run) return;
+    CachedGameOverWidget = nullptr;
+    ScoreStatus.Empty();
+    CleanupRunActors();
+    SurvivalScoreAccumulator = 0.f;
+    USeagullGameInstance* GI = GetSeagullGameInstance();
+    // A late cloud response must not rewind upgrades acquired during this run.
+    if (GI) GI->bSaveLoaded = true;
+    BeginValidatedRun();
+}
 
-	// Initialize game state
-	ASeagullStormGameState* GS = GetGameState<ASeagullStormGameState>();
-	if (GS)
-	{
-		GS->InitRun(GI ? GI->GetConfigCache() : nullptr);
-
-		// Bind level-up trigger (Fix 10). AddUnique: the GameState persists across
-		// runs, so a plain AddDynamic here would stack one binding per run and fire
-		// OnLevelUpTriggered multiple times per level-up.
-		GS->OnTriggerLevelUpChoices.AddUniqueDynamic(this, &ASeagullStormGameMode::OnLevelUpTriggered);
-	}
-
-	// Validated Actions: ask for a run ticket while the arena spawns
-	BeginValidatedRun();
-
+void ASeagullStormGameMode::SetupRunActors()
+{
+    USeagullGameInstance* GI = GetSeagullGameInstance();
+    ASeagullStormGameState* GS = GetGameState<ASeagullStormGameState>();
+    if (GS)
+    {
+        GS->InitRun(GI ? GI->GetConfigCache() : nullptr);
+        GS->OnTriggerLevelUpChoices.AddUniqueDynamic(this, &ASeagullStormGameMode::OnLevelUpTriggered);
+    }
 	// Reset enemy spawner
 	if (EnemySpawner)
 	{
@@ -298,8 +315,11 @@ void ASeagullStormGameMode::EndRun(bool bPlayerDied)
 	ASeagullStormGameState* GS = GetGameState<ASeagullStormGameState>();
 	USeagullGameInstance* GI = GetSeagullGameInstance();
 	USeagullHorizonManager* HM = GetHorizonManager();
+    if (!GS || !GS->bRunActive) return;
+    GS->bRunActive = false;
+    SwitchToScreen(ESeagullGameScreen::GameOver);
 
-	if (GS && GI)
+    if (GS && GI)
 	{
 		// Calculate coins
 		int32 CoinDivisor = 10;
@@ -334,11 +354,14 @@ void ASeagullStormGameMode::EndRun(bool bPlayerDied)
 		}
 
 		// Submit to horizOn
+		if (CachedGameOverWidget) CachedGameOverWidget->LoadGameOverData();
+		GI->PersistPracticeSave();
+
 		if (HM)
 		{
 			SubmitRunScore(HM, GS->CurrentScore, GS->CurrentWave, CoinsEarned, GS->RunStats.Duration);
 
-			HM->SaveData(GI->SaveData.ToJsonString(), [HM](bool bSaveSuccess)
+			if (!bRunPractice && !GI->bPracticeMode && HM->IsSignedIn() && GI->bCloudSaveReady) HM->SaveData(GI->SaveData.ToJsonString(), [HM](bool bSaveSuccess)
 			{
 				if (!bSaveSuccess && HM)
 				{
@@ -359,7 +382,7 @@ void ASeagullStormGameMode::EndRun(bool bPlayerDied)
 				GI->SaveData.GetUpgradeLevel(TEXT("hp")),
 				GI->SaveData.GetUpgradeLevel(TEXT("magnet")),
 				CoinsEarned);
-			HM->LogInfo(LogMsg);
+			if (!bRunPractice) HM->LogInfo(LogMsg);
 		}
 	}
 
@@ -371,7 +394,7 @@ void ASeagullStormGameMode::EndRun(bool bPlayerDied)
 
 	SurvivalScoreAccumulator = 0.f;
 	CleanupRunActors();
-	SwitchToScreen(ESeagullGameScreen::GameOver);
+	ShowScoreStatus(ScoreStatus, bScoreStatusError);
 }
 
 void ASeagullStormGameMode::ReturnToHub()
@@ -391,57 +414,77 @@ void ASeagullStormGameMode::RecordLevelUpChoice(int32 ChoiceIndex)
 
 void ASeagullStormGameMode::BeginValidatedRun()
 {
-	InputLog.Reset();
-	bValidatedTicketReady = false;
-	++RunSerial;
-
-	USeagullHorizonManager* HM = GetHorizonManager();
-	if (!HM) return;
-
-	// A ticket of an earlier run must never carry this run's score.
-	HM->DiscardValidatedRun();
-
-	USeagullGameInstance* GI = GetSeagullGameInstance();
-	const bool bEnabledByConfig = !GI || !GI->GetConfigCache() || GI->GetConfigCache()->bValidatedActionsEnabled;
-	if (!USeagullHorizonManager::IsValidatedActionsCompiledIn() || !bEnabledByConfig || !HM->IsSignedIn())
-	{
-		return; // normal SubmitScore at game over
-	}
-
-	const int32 Serial = RunSerial;
-	TWeakObjectPtr<ASeagullStormGameMode> WeakThis(this);
-	// Board from remote config validated_runs_board (default "default", the game's leaderboard).
-	const FString Board = (GI && GI->GetConfigCache()) ? GI->GetConfigCache()->ValidatedRunsBoard : FString(TEXT("default"));
-	HM->StartValidatedRun(Board, [WeakThis, Serial](bool bSuccess, int32 Seed, const FString& ErrorCode)
-	{
-		ASeagullStormGameMode* GM = WeakThis.Get();
-		if (!GM || Serial != GM->RunSerial) return; // answer for an earlier run
-
-		if (!bSuccess)
-		{
-			// NOT_SUPPORTED (self-hosted server), RUN_RATE_LIMITED, offline, ...: the run still counts
-			// through the normal submit, unless the board is "validated only".
-			UE_LOG(LogSeagullStorm, Warning, TEXT("Validated run not started (%s), using the normal score submit"), *ErrorCode);
-			return;
-		}
-
-		// Seed the random stream (enemy spawns, level-up cards) with the server seed and
-		// note it in the log header, so a replay can rebuild the run.
-		FMath::RandInit(Seed);
-		GM->InputLog.SetSeed(Seed);
-		GM->bValidatedTicketReady = true;
-		UE_LOG(LogSeagullStorm, Log, TEXT("Validated run started, seed %d"), Seed);
-	});
+    InputLog.Reset();
+    bValidatedTicketReady = false;
+    bAwaitingRunTicket = false;
+    bRunPractice = true;
+    bAllowNormalSubmit = false;
+    ++RunSerial;
+    USeagullHorizonManager* HM = GetHorizonManager();
+    USeagullGameInstance* GI = GetSeagullGameInstance();
+    if (HM) HM->DiscardValidatedRun();
+    if (!HM || !GI || GI->bPracticeMode || !HM->IsSignedIn())
+    {
+        RunStatus = TEXT("Practice / score stays local");
+        SetupRunActors();
+        return;
+    }
+    if (!GI->GetConfigCache()->bValidatedActionsEnabled)
+    {
+        bRunPractice = false;
+        bAllowNormalSubmit = true;
+        RunStatus = TEXT("Online / ordinary leaderboard");
+        SetupRunActors();
+        return;
+    }
+    bAwaitingRunTicket = true;
+    RunStatus = TEXT("Requesting ranked run ticket...");
+    const int32 Serial = RunSerial;
+    TWeakObjectPtr<ASeagullStormGameMode> WeakThis(this);
+    HM->StartValidatedRun(GI->GetConfigCache()->ValidatedRunsBoard,
+        [WeakThis, Serial](bool bSuccess, int32 Seed, const FString& ErrorCode)
+        {
+            ASeagullStormGameMode* GM = WeakThis.Get();
+            if (!GM || Serial != GM->RunSerial) return;
+            GM->bAwaitingRunTicket = false;
+            if (bSuccess)
+            {
+                FMath::RandInit(Seed);
+                GM->InputLog.SetSeed(Seed);
+                GM->bValidatedTicketReady = true;
+                GM->bRunPractice = false;
+                GM->RunStatus = TEXT("Online / ticket received / result pending");
+            }
+            else
+            {
+                if (USeagullGameInstance* GI = GM->GetSeagullGameInstance()) GI->BeginPractice();
+				GM->RunStatus = FString::Printf(TEXT("Practice / %s"), *USeagullHorizonManager::DescribeScoreError(ErrorCode));
+            }
+            GM->SetupRunActors();
+        });
 }
 
 void ASeagullStormGameMode::SubmitRunScore(USeagullHorizonManager* HM, int32 Score, int32 Wave, int32 CoinsEarned, float RunSeconds)
 {
 	TWeakObjectPtr<ASeagullStormGameMode> WeakThis(this);
+    const int32 Serial = RunSerial;
+    if (bRunPractice)
+    {
+        ShowScoreStatus(TEXT("Practice complete / local progress / no leaderboard submission"), false);
+        return;
+    }
+    ShowScoreStatus(TEXT("Submitting run / waiting for server..."), false);
 
-	if (bValidatedTicketReady && HM->HasValidatedRun())
+    if (bValidatedTicketReady && HM->HasValidatedRun())
 	{
 		bValidatedTicketReady = false;
 		InputLog.Finish(RunSeconds);
+		if (InputLog.IsTruncated())
+		{
+			HM->DiscardValidatedRun();
+			ShowScoreStatus(TEXT("Input evidence limit reached / score not submitted"), true);
+			return;
+		}
 
 		// Stage "wave_N" lets the dashboard rules set limits per wave. Coins go along as an
 		// earned value only when the remote config names the value key of the rules.
@@ -451,10 +494,10 @@ void ASeagullStormGameMode::SubmitRunScore(USeagullHorizonManager* HM, int32 Sco
 
 		// The SDK hashes the log and, when the server asks for it, uploads it as evidence.
 		HM->SubmitValidatedScore(static_cast<int64>(Score), InputLog.GetBytes(), Stage, CoinsKey, CoinsEarned,
-			[WeakThis, HM](bool bSuccess, int64 Rank, const FString& ErrorCode)
+			[WeakThis, HM, Serial](bool bSuccess, int64 Rank, const FString& ErrorCode)
 			{
 				ASeagullStormGameMode* GM = WeakThis.Get();
-				if (!GM) return;
+				if (!GM || Serial != GM->RunSerial) return;
 
 				if (bSuccess)
 				{
@@ -462,7 +505,7 @@ void ASeagullStormGameMode::SubmitRunScore(USeagullHorizonManager* HM, int32 Sco
 					{
 						GM->CachedGameOverWidget->SetRank(static_cast<int32>(Rank));
 					}
-					GM->ShowScoreStatus(TEXT("Validated run"), false);
+					GM->ShowScoreStatus(TEXT("Server accepted / validated score submitted"), false);
 					return;
 				}
 
@@ -473,16 +516,24 @@ void ASeagullStormGameMode::SubmitRunScore(USeagullHorizonManager* HM, int32 Sco
 		return;
 	}
 
-	// Normal submit: Validated Actions off or no ticket. Submit score first, then fetch rank (Fix 5)
-	HM->SubmitScore(static_cast<int64>(Score), [WeakThis, HM](bool bScoreSuccess)
+	if (!bAllowNormalSubmit)
+    {
+        ShowScoreStatus(TEXT("Practice / no valid ticket / score stays local"), true);
+        return;
+    }
+    // Ordinary board explicitly selected through remote config; never labeled validated.
+	HM->SubmitScore(static_cast<int64>(Score), [WeakThis, HM, Serial](bool bScoreSuccess)
 	{
-		if (bScoreSuccess)
-		{
+		ASeagullStormGameMode* SubmitGM = WeakThis.Get();
+        if (!SubmitGM || Serial != SubmitGM->RunSerial) return;
+        if (bScoreSuccess)
+        {
+            SubmitGM->ShowScoreStatus(TEXT("Ordinary score submitted / no validation"), false);
 			// After score is submitted, fetch rank
-			HM->GetRank([WeakThis](bool bRankSuccess, const FHorizonLeaderboardEntry& Entry)
+			HM->GetRank([WeakThis, Serial](bool bRankSuccess, const FHorizonLeaderboardEntry& Entry)
 			{
 				ASeagullStormGameMode* RankGM = WeakThis.Get();
-				if (bRankSuccess && RankGM && RankGM->CachedGameOverWidget)
+				if (bRankSuccess && RankGM && Serial == RankGM->RunSerial && RankGM->CachedGameOverWidget)
 				{
 					RankGM->CachedGameOverWidget->SetRank(Entry.Position);
 				}
@@ -493,7 +544,7 @@ void ASeagullStormGameMode::SubmitRunScore(USeagullHorizonManager* HM, int32 Sco
 		// A "validated only" board refuses the normal submit: tell the player why.
 		const FString ErrorCode = HM->GetLastSubmitErrorCode();
 		ASeagullStormGameMode* GM = WeakThis.Get();
-		if (GM && (ErrorCode == TEXT("VALIDATED_SUBMIT_REQUIRED") || ErrorCode == TEXT("PLAYER_BANNED")))
+		if (GM)
 		{
 			GM->ShowScoreStatus(USeagullHorizonManager::DescribeScoreError(ErrorCode), true);
 			return;
@@ -507,6 +558,8 @@ void ASeagullStormGameMode::SubmitRunScore(USeagullHorizonManager* HM, int32 Sco
 
 void ASeagullStormGameMode::ShowScoreStatus(const FString& Message, bool bIsError)
 {
+	ScoreStatus = Message;
+	bScoreStatusError = bIsError;
 	if (CachedGameOverWidget)
 	{
 		CachedGameOverWidget->SetScoreStatus(Message, bIsError);

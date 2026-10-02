@@ -157,12 +157,14 @@ void USeagullEmailAuthForm::OnCloseClicked()
 
 void USeagullEmailAuthForm::OnAuthResult(bool bSuccess)
 {
+	if (!IsInViewport()) return;
 	if (bSuccess)
 	{
 		RemoveFromParent();
 		ASeagullStormGameMode* GM = Cast<ASeagullStormGameMode>(UGameplayStatics::GetGameMode(GetWorld()));
 		if (GM)
 		{
+			if (USeagullGameInstance* GI = Cast<USeagullGameInstance>(UGameplayStatics::GetGameInstance(GetWorld()))) GI->BeginOnlineSession(bRegisterMode);
 			GM->SwitchToScreen(ESeagullGameScreen::Hub);
 		}
 	}

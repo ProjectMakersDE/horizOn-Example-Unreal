@@ -41,6 +41,8 @@ protected:
 	UButton* PauseButton = nullptr;
 
 private:
+	UPROPERTY()
+	UTextBlock* RunStatusText = nullptr;
 	UFUNCTION()
 	void OnPauseClicked();
 };

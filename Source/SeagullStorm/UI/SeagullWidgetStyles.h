@@ -19,8 +19,8 @@ class UWidgetTree;
 // 480x270: 8 px * 3 would make body rows overpower the layout.
 namespace SeagullWidgetStyles
 {
-	constexpr int32 TitleFontSize = 48;
-	constexpr int32 TextFontSize = 24;
+	constexpr int32 TitleFontSize = 36;
+	constexpr int32 TextFontSize = 20;
 	constexpr int32 SmallFontSize = 16;
 
 	// Press Start 2P loaded straight from the shipped TTF file (no UFont asset needed).

@@ -27,6 +27,13 @@ public:
 
 	bool bConfigLoaded = false;
 	bool bSaveLoaded = false;
+	bool bCloudSaveReady = false;
+	bool bPracticeMode = false;
+	FString SaveOwnerId;
+
+	void BeginPractice();
+	void BeginOnlineSession(bool bKnownNewPlayer = false);
+	void PersistPracticeSave();
 
 	bool bNewsLoaded = false;
 	TArray<FHorizonNewsEntry> CachedNews;

@@ -4,12 +4,15 @@ The horizOn SDK is a fully-featured Unreal Engine plugin that connects your game
 
 ## Features
 
-- **Authentication** -- Anonymous, email, and Google sign-up / sign-in with automatic session caching.
+- **Authentication** -- Anonymous, email, Google, and Apple sign-up / sign-in with automatic session caching.
 - **Cloud Save** -- Save and load player data in JSON (string) or binary format.
 - **Leaderboard** -- Submit scores, retrieve top entries, player rank, and surrounding entries with in-memory caching.
 - **Remote Config** -- Typed key-value retrieval (string, int, float, bool) with cache support.
+- **Localization** -- Translated strings in 15 languages with an active language and caching.
 - **News** -- Fetch and display in-game news entries with language filtering and 5-minute TTL cache.
-- **Gift Codes** -- Validate and redeem promotional codes.
+- **Gift Codes** -- Validate and redeem promotional codes; codes with `grants` unlock cosmetics.
+- **Player Profile** -- Avatar, frame and up to three badges per player, cosmetic unlocks, shown on every leaderboard entry.
+- **Validated Actions** -- Server-checked runs: a single use ticket with a server seed, a validated submit with the SHA-256 of the input log, rule rejections with a machine readable code, server-owned values (currency, loot) that only accepted runs change, and the input log uploaded as evidence when the server asks for it.
 - **Feedback** -- Submit bug reports, feature requests, and general feedback with optional device info.
 - **User Logs** -- Send structured log entries (info, warning, error) to the server for analytics and debugging.
 - **Crash Reporting** -- Capture crashes and non-fatal exceptions with breadcrumbs and custom keys.
@@ -35,13 +38,13 @@ The horizOn SDK is a fully-featured Unreal Engine plugin that connects your game
 // Get the subsystem from any Actor or UObject with world context
 UHorizonSubsystem* Horizon = GetGameInstance()->GetSubsystem<UHorizonSubsystem>();
 
+// Listen for the connection result (OnConnected must be a UFUNCTION)
+Horizon->OnConnected.AddDynamic(this, &AMyActor::OnConnected);
+
 // Connect to the backend
 Horizon->ConnectToServer();
 
-// Listen for connection result
-Horizon->OnConnected.AddDynamic(this, &AMyActor::OnConnected);
-
-// Sign up anonymously
+// In AMyActor::OnConnected(): sign up anonymously
 Horizon->Auth->SignUpAnonymous(TEXT("Player1"),
     FOnAuthComplete::CreateLambda([](bool bSuccess)
     {
@@ -58,9 +61,9 @@ Horizon->Leaderboard->SubmitScore(42000,
 
 ## Quick Start (Blueprints)
 
-1. Use the **"horizOn Connect"** async node to connect to the server.
-2. Use **"horizOn Sign Up Anonymous"** or **"horizOn Sign In Email"** to authenticate.
-3. Call any feature node (Submit Score, Save Data, Load News, etc.).
+1. Use the **"Connect to horizOn Server"** async node to connect to the server.
+2. Use **"Sign Up Anonymous"** or **"Sign In Email"** to authenticate.
+3. Call any feature node (**"Submit Leaderboard Score"**, **"Cloud Save Data"**, **"Load News"**, etc.).
 
 All async nodes expose **On Success** and **On Failure** execution pins for easy error handling.
 
@@ -69,7 +72,7 @@ All async nodes expose **On Success** and **On Failure** execution pins for easy
 Open **Project Settings > Plugins > horizOn SDK** to set:
 
 - **API Key** -- Your project API key.
-- **Backend Hosts** -- One or more backend URLs. Multiple hosts enable automatic ping-based selection.
+- **Backend Hosts** -- One or more backend URLs, for example `https://horizon.pm`. Empty by default, so set or import it before connecting. Multiple hosts enable automatic ping-based selection.
 - **Connection Timeout**, **Max Retries**, **Retry Delay** -- Network resilience settings.
 - **Log Level** -- Control SDK log verbosity.
 
@@ -82,7 +85,7 @@ minimal flow on Play: connect, anonymous sign-up, leaderboard score submit, and
 a result message in the log and on screen.
 
 1. Enable the horizOn SDK plugin under **Edit > Plugins** and restart the editor.
-2. Set your **API Key** in **Project Settings > Plugins > horizOn SDK**.
+2. Set your **API Key** and **Backend Hosts** in **Project Settings > Plugins > horizOn SDK**.
 3. Drop **AHelloHorizonActor** into a level and press Play.
 
 Source: `Source/HorizonSDK/Public/Examples/HelloHorizon/HelloHorizonActor.h` and the matching `.cpp` under `Private/`.
@@ -104,14 +107,25 @@ output.
 | Crash Reporting | `AHorizonCrashReportingExample` |
 | User Logs | `AHorizonUserLogsExample` |
 | Remote Config | `AHorizonRemoteConfigExample` |
+| Localization | `AHorizonLocalizationExample` |
 | News | `AHorizonNewsExample` |
 | Email Sending | `AHorizonEmailSendingExample` |
 | Gift Codes | `AHorizonGiftCodesExample` |
 | Feedback | `AHorizonFeedbackExample` |
+| Player Profile | `AHorizonPlayerProfileExample` |
+| Validated Actions | `AHorizonValidatedActionsExample` |
 
 The `AHorizonEmailSendingExample` and `AHorizonGiftCodesExample` actors expose
 editable properties (recipient user ID, template slug, gift code) that you need
 to set to real values from your horizOn Dashboard before running them.
+`AHorizonPlayerProfileExample` needs at least one free avatar in the cosmetics
+catalog of your API key (horizOn Dashboard).
+`AHorizonValidatedActionsExample` runs without setup (no rule set means default
+rules); its `LeaderboardKey` property selects the board, empty runs without one.
+Set `ValueKey` to a value defined in the rules of your API key to earn server-owned
+values; `bMirrorToCloudSave` writes the state mirror to the cloud save.
+It logs evidence requests and uploads (set the board's evidence top N above 0 in the
+horizOn Dashboard to see one); `bUploadEvidenceManually` shows the `UploadEvidence` path.
 
 ## Documentation
 

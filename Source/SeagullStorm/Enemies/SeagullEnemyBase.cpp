@@ -2,6 +2,7 @@
 #include "Player/SeagullPlayerPawn.h"
 #include "Player/SeagullHealthComponent.h"
 #include "Pickups/SeagullPickup_XP.h"
+#include "Pickups/SeagullPickup_Health.h"
 #include "Core/SeagullStormGameState.h"
 #include "Core/SeagullStormGameMode.h"
 #include "Audio/SeagullAudioManager.h"
@@ -24,6 +25,9 @@ ASeagullEnemyBase::ASeagullEnemyBase()
 
 	SpriteComponent = CreateDefaultSubobject<UPaperFlipbookComponent>(TEXT("Sprite"));
 	SpriteComponent->SetupAttachment(RootComponent);
+	SpriteComponent->SetRelativeRotation(FRotator(-90.f, 0.f, 0.f)); // Paper2D XZ -> arena XY.
+	SpriteComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	SpriteComponent->SetRelativeLocation(FVector(0.f, 0.f, 2.f));
 }
 
 void ASeagullEnemyBase::BeginPlay()
@@ -51,6 +55,20 @@ void ASeagullEnemyBase::Tick(float DeltaTime)
 
 	MoveTowardPlayer(DeltaTime);
 	AttackTimer -= DeltaTime;
+    HitFlashTimer = FMath::Max(0.f, HitFlashTimer - DeltaTime);
+    if (SpriteComponent)
+    {
+        SpriteComponent->SetSpriteColor(HitFlashTimer > 0.f ? SeagullColors::Orange : FLinearColor::White);
+        const float Bob = FMath::Sin(GetWorld()->GetTimeSeconds() * 7.f + GetUniqueID()) * 1.5f;
+        SpriteComponent->SetRelativeLocation(FVector(0.f, 0.f, 3.f + Bob));
+    }
+    // Sustained contact keeps hurting: begin-overlap alone never fires again while touching.
+    ASeagullPlayerPawn* Player = Cast<ASeagullPlayerPawn>(GetPlayerPawn());
+    if (Player && AttackTimer <= 0.f && FVector::DistSquared(GetActorLocation(), Player->GetActorLocation()) <= FMath::Square(CollisionComponent->GetScaledSphereRadius() + Player->CollisionComponent->GetScaledSphereRadius()))
+    {
+        Player->HealthComponent->TakeDamage(ContactDamage);
+        AttackTimer = AttackCooldown;
+    }
 }
 
 void ASeagullEnemyBase::InitFromStats(const FSeagullEnemyStats& Stats)
@@ -66,7 +84,8 @@ void ASeagullEnemyBase::TakeDamageAmount(int32 Amount)
 {
 	if (IsDead()) return;
 
-	CurrentHP -= Amount;
+	CurrentHP -= FMath::Max(0, Amount);
+	HitFlashTimer = 0.15f;
 
 	// Play enemy hit SFX
 	UWorld* World = GetWorld();
@@ -123,6 +142,12 @@ void ASeagullEnemyBase::OnDeath()
 	if (GS)
 	{
 		GS->AddKill();
+		if (World && EnemyType != ESeagullEnemyType::Boss && GS->KillCount % 12 == 0)
+		{
+			FActorSpawnParameters Params;
+			Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+			World->SpawnActor<ASeagullPickup_Health>(ASeagullPickup_Health::StaticClass(), GetActorLocation(), FRotator::ZeroRotator, Params);
+		}
 	}
 
 	// Play the death flipbook before despawning when the asset exists

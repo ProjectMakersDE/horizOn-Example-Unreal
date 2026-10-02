@@ -1,5 +1,10 @@
 #include "Horizon/SeagullHorizonManager.h"
 #include "SeagullStorm.h"
+#include "Core/SeagullGameInstance.h"
+#include "Data/SeagullConfigCache.h"
+#include "Managers/HorizonLocalizationManager.h"
+#include "Managers/HorizonPlayerProfileManager.h"
+#include "Managers/HorizonEmailSendingManager.h"
 
 // HorizonSubsystem.h only forward declares its managers: include every manager this facade calls.
 #include "Managers/HorizonAuthManager.h"
@@ -158,7 +163,7 @@ void USeagullHorizonManager::SubmitScore(int64 Score, TFunction<void(bool)> Call
 		[Callback](bool bSuccess, const FString& /*Error*/)
 		{
 			if (Callback) Callback(bSuccess);
-		}));
+		}), FString(), GetLeaderboardKey());
 }
 
 void USeagullHorizonManager::GetTop(int32 Limit, TFunction<void(bool, const TArray<FHorizonLeaderboardEntry>&)> Callback)
@@ -169,7 +174,7 @@ void USeagullHorizonManager::GetTop(int32 Limit, TFunction<void(bool, const TArr
 		[Callback](bool bSuccess, const TArray<FHorizonLeaderboardEntry>& Entries)
 		{
 			if (Callback) Callback(bSuccess, Entries);
-		}));
+		}), GetLeaderboardKey());
 }
 
 void USeagullHorizonManager::GetRank(TFunction<void(bool, const FHorizonLeaderboardEntry&)> Callback)
@@ -180,7 +185,7 @@ void USeagullHorizonManager::GetRank(TFunction<void(bool, const FHorizonLeaderbo
 		[Callback](bool bSuccess, const FHorizonLeaderboardEntry& Entry)
 		{
 			if (Callback) Callback(bSuccess, Entry);
-		}));
+		}), GetLeaderboardKey());
 }
 
 // --- News ---
@@ -237,6 +242,7 @@ void USeagullHorizonManager::SubmitFeedback(const FString& Title, const FString&
 
 void USeagullHorizonManager::LogInfo(const FString& Message)
 {
+	if (const USeagullGameInstance* GI = GetTypedOuter<USeagullGameInstance>()) { if (GI->bPracticeMode) return; }
 	if (!Subsystem || !Subsystem->UserLogs) return;
 
 	Subsystem->UserLogs->Info(Message, FOnUserLogComplete::CreateLambda(
@@ -248,6 +254,7 @@ void USeagullHorizonManager::LogInfo(const FString& Message)
 
 void USeagullHorizonManager::LogWarn(const FString& Message)
 {
+	if (const USeagullGameInstance* GI = GetTypedOuter<USeagullGameInstance>()) { if (GI->bPracticeMode) return; }
 	if (!Subsystem || !Subsystem->UserLogs) return;
 
 	Subsystem->UserLogs->Warn(Message, FOnUserLogComplete::CreateLambda(
@@ -285,6 +292,7 @@ void USeagullHorizonManager::SetCrashCustomKey(const FString& Key, const FString
 
 void USeagullHorizonManager::RecordException(const FString& Error, const FString& StackTrace)
 {
+	if (const USeagullGameInstance* GI = GetTypedOuter<USeagullGameInstance>()) { if (GI->bPracticeMode) return; }
 	if (Subsystem && Subsystem->Crashes)
 	{
 		Subsystem->Crashes->RecordException(Error, StackTrace);
@@ -308,6 +316,7 @@ void USeagullHorizonManager::StartValidatedRun(const FString& LeaderboardKey, TF
 	if (!Subsystem || !Subsystem->ValidatedActions) { if (Callback) Callback(false, 0, TEXT("NOT_SUPPORTED")); return; }
 
 	UHorizonValidatedActionsManager* Validated = Subsystem->ValidatedActions;
+	EvidenceStatus = TEXT("No evidence requested");
 
 	// Upload the input log right away when the server asks for evidence (top N, flagged runs).
 	Validated->bAutoUploadEvidence = true;
@@ -360,7 +369,7 @@ void USeagullHorizonManager::SubmitValidatedScore(int64 Score, const TArray<uint
 		FOnValidatedSubmitComplete::CreateLambda(
 			[Callback](bool bSuccess, const FHorizonValidatedSubmitResult& Result, const FString& ErrorCode, const FString& /*ErrorMessage*/)
 			{
-				if (Callback) Callback(bSuccess, Result.Rank, ErrorCode);
+				if (Callback) Callback(bSuccess && Result.bAccepted, Result.Rank, bSuccess && !Result.bAccepted ? FString(TEXT("SERVER_RESULT_NOT_ACCEPTED")) : ErrorCode);
 			}));
 #else
 	if (Callback) Callback(false, 0, TEXT("NOT_SUPPORTED"));
@@ -401,10 +410,80 @@ FString USeagullHorizonManager::DescribeScoreError(const FString& ErrorCode)
 
 void USeagullHorizonManager::HandleEvidenceUploaded(const FString& RunId, int32 Bytes)
 {
+	EvidenceStatus = FString::Printf(TEXT("Evidence uploaded / %d bytes"), Bytes);
 	UE_LOG(LogSeagullStorm, Log, TEXT("Validated run %s: input log uploaded as evidence (%d bytes)"), *RunId, Bytes);
 }
 
 void USeagullHorizonManager::HandleEvidenceUploadFailed(const FString& RunId, const FString& ErrorCode, const FString& ErrorMessage)
 {
+	EvidenceStatus = FString::Printf(TEXT("Score accepted / evidence upload failed: %s"), *ErrorCode);
 	UE_LOG(LogSeagullStorm, Warning, TEXT("Validated run %s: evidence upload failed (%s): %s"), *RunId, *ErrorCode, *ErrorMessage);
+}
+
+FString USeagullHorizonManager::GetLeaderboardKey() const
+{
+    USeagullGameInstance* GI = GetTypedOuter<USeagullGameInstance>();
+    return GI ? GI->GetConfigCache()->ValidatedRunsBoard : FString(TEXT("default"));
+}
+
+void USeagullHorizonManager::ListBoards(TFunction<void(bool, const TArray<FHorizonLeaderboardBoard>&)> Callback)
+{
+    if (!Subsystem || !Subsystem->Leaderboard) { if (Callback) Callback(false, {}); return; }
+    Subsystem->Leaderboard->ListBoards(FOnLeaderboardBoardsComplete::CreateLambda(
+        [Callback](bool bSuccess, const TArray<FHorizonLeaderboardBoard>& Boards) { if (Callback) Callback(bSuccess, Boards); }));
+}
+
+void USeagullHorizonManager::GetAround(int32 Range, TFunction<void(bool, const TArray<FHorizonLeaderboardEntry>&)> Callback)
+{
+    if (!Subsystem || !Subsystem->Leaderboard) { if (Callback) Callback(false, {}); return; }
+    Subsystem->Leaderboard->GetAround(Range, false, FOnLeaderboardEntriesComplete::CreateLambda(
+        [Callback](bool bSuccess, const TArray<FHorizonLeaderboardEntry>& Entries) { if (Callback) Callback(bSuccess, Entries); }), GetLeaderboardKey());
+}
+
+void USeagullHorizonManager::GetValidatedState(TFunction<void(bool, const FHorizonPlayerState&, const FString&)> Callback)
+{
+    if (!Subsystem || !Subsystem->ValidatedActions) { if (Callback) Callback(false, {}, TEXT("NOT_SUPPORTED")); return; }
+    Subsystem->ValidatedActions->GetState(FOnPlayerStateLoaded::CreateLambda(
+        [Callback](bool bSuccess, const FHorizonPlayerState& State, const FString& Code, const FString&) { if (Callback) Callback(bSuccess, State, Code); }));
+}
+
+void USeagullHorizonManager::LoadLocalization(const FString& Lang, TFunction<void(bool, const TMap<FString, FString>&)> Callback)
+{
+    if (!Subsystem || !Subsystem->Localization) { if (Callback) Callback(false, {}); return; }
+    Subsystem->Localization->SetLanguage(Lang);
+    Subsystem->Localization->GetAllLocalizations(Lang, FOnAllLocalizationsComplete::CreateLambda(
+        [Callback](bool bSuccess, const TMap<FString, FString>& Values) { if (Callback) Callback(bSuccess, Values); }));
+}
+
+void USeagullHorizonManager::GetPlayerProfile(TFunction<void(bool, const FHorizonPlayerProfileResult&, const FString&)> Callback)
+{
+    if (!Subsystem || !Subsystem->PlayerProfile) { if (Callback) Callback(false, {}, TEXT("NOT_SUPPORTED")); return; }
+    Subsystem->PlayerProfile->GetProfile(FOnPlayerProfileComplete::CreateLambda(
+        [Callback](bool Ok, const FHorizonPlayerProfileResult& Result, const FString& Code, const FString&) { if (Callback) Callback(Ok, Result, Code); }));
+}
+
+void USeagullHorizonManager::SetPlayerAvatar(const FString& AvatarId, TFunction<void(bool, const FHorizonPlayerProfileResult&, const FString&)> Callback)
+{
+    if (!Subsystem || !Subsystem->PlayerProfile || !Subsystem->PlayerProfile->HasCurrentProfile())
+    { if (Callback) Callback(false, {}, TEXT("LOAD_PROFILE_FIRST")); return; }
+    const FHorizonPlayerProfileResult& Current = Subsystem->PlayerProfile->GetCurrentProfile();
+    if (!Current.IsAvailable(AvatarId)) { if (Callback) Callback(false, Current, TEXT("COSMETIC_NOT_AVAILABLE")); return; }
+    // Preserve the other slots: SetProfile replaces the whole profile.
+    Subsystem->PlayerProfile->SetProfile(AvatarId, Current.Profile.FrameId, Current.Profile.Badges,
+        FOnPlayerProfileComplete::CreateLambda(
+            [Callback](bool Ok, const FHorizonPlayerProfileResult& Result, const FString& Code, const FString&) { if (Callback) Callback(Ok, Result, Code); }));
+}
+
+void USeagullHorizonManager::SendOwnAccountEmail(const FString& TemplateSlug, TFunction<void(bool, const FString&)> Callback)
+{
+    if (!Subsystem || !Subsystem->EmailSending || !IsSignedIn()) { if (Callback) Callback(false, TEXT("Sign in with an email account first.")); return; }
+    if (!Subsystem->Auth || Subsystem->Auth->GetCurrentUser().Email.IsEmpty())
+    { if (Callback) Callback(false, TEXT("This player has no email address. Use an email account for the email demo.")); return; }
+    // Called only by the explicit panel button, never automatically after a run.
+    Subsystem->EmailSending->SendEmail(GetUserId(), TemplateSlug, {}, TEXT("en"), FOnSendEmailComplete::CreateLambda(
+        [Callback](bool Ok, const FSendEmailResponse& Response)
+        {
+            if (Callback) Callback(Ok, Ok ? FString::Printf(TEXT("Email request accepted / %s / id %s"), *Response.Status, *Response.Id)
+                : FString(TEXT("Email request failed / check template and the account email.")));
+        }));
 }

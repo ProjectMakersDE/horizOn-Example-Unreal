@@ -38,6 +38,8 @@ public:
 	void ReturnToHub();
 
 	ESeagullGameScreen GetCurrentScreen() const { return CurrentScreen; }
+	const FString& GetRunStatus() const { return RunStatus; }
+	bool IsAwaitingRunTicket() const { return bAwaitingRunTicket; }
 
 	// Records the picked level-up card in the run's input log (Validated Actions).
 	void RecordLevelUpChoice(int32 ChoiceIndex);
@@ -74,6 +76,13 @@ private:
 
 	// True once this run's ticket arrived.
 	bool bValidatedTicketReady = false;
+    bool bAwaitingRunTicket = false;
+    bool bRunPractice = true;
+    bool bAllowNormalSubmit = false;
+    FString RunStatus = TEXT("Practice / local progress");
+    FString ScoreStatus;
+    bool bScoreStatusError = false;
+    void SetupRunActors();
 
 	void BeginValidatedRun();
 	void SubmitRunScore(USeagullHorizonManager* HM, int32 Score, int32 Wave, int32 CoinsEarned, float RunSeconds);

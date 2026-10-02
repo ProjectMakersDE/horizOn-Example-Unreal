@@ -55,6 +55,7 @@ protected:
 
 	float AttackCooldown = 1.0f;
 	float AttackTimer = 0.f;
+	float HitFlashTimer = 0.f;
 
 	AActor* GetPlayerPawn() const;
 
