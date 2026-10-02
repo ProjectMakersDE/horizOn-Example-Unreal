@@ -161,6 +161,11 @@ void USeagullTitleScreen::OnGuestClicked()
 
 	USeagullHorizonManager* HM = GI->GetHorizonManager();
 	if (!HM) return;
+	if (HM->IsAuthenticating())
+	{
+		if (StatusText) StatusText->SetText(FText::FromString(TEXT("Authentication is already in progress. Offline practice remains available.")));
+		return;
+	}
 
 	// Weak self: the title screen can be removed and GC'd (e.g. a concurrent
 	// session restore switching to the Hub) before the HTTP response lands.
@@ -192,13 +197,18 @@ void USeagullTitleScreen::OnAppleClicked()
 	USeagullGameInstance* GI = Cast<USeagullGameInstance>(UGameplayStatics::GetGameInstance(GetWorld()));
 	if (!GI) return;
 
-	UHorizonSubsystem* Subsystem = GI->GetHorizonSubsystem();
-	if (Subsystem && Subsystem->Auth)
+	USeagullHorizonManager* HM = GI->GetHorizonManager();
+	if (HM && HM->IsAuthenticating())
+	{
+		if (StatusText) StatusText->SetText(FText::FromString(TEXT("Authentication is already in progress.")));
+		return;
+	}
+	if (HM)
 	{
 		// Drop-in Apple flow -- native sheet on iOS, no-op fallback on other platforms.
 		// On non-iOS the SDK logs a warning and reports failure, which we surface to the user.
 		TWeakObjectPtr<USeagullTitleScreen> WeakThis(this);
-		Subsystem->Auth->SignInWithApple(FOnAuthComplete::CreateLambda(
+		HM->SignInWithApple(
 			[WeakThis](bool bSuccess)
 			{
 				USeagullTitleScreen* Screen = WeakThis.Get();
@@ -218,7 +228,7 @@ void USeagullTitleScreen::OnAppleClicked()
 						UE_LOG(LogSeagullStorm, Warning, TEXT("Apple sign-in not available on this platform"));
 					}
 				}
-			}));
+			});
 	}
 	else
 	{

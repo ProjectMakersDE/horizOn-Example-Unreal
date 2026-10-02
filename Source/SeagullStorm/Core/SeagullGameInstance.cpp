@@ -42,6 +42,8 @@ USeagullConfigCache* USeagullGameInstance::GetConfigCache()
 
 void USeagullGameInstance::BeginPractice()
 {
+    ++SessionGeneration;
+    GetHorizonManager()->DiscardValidatedRun();
     bPracticeMode = true;
     bSaveLoaded = true;
     bCloudSaveReady = false;
@@ -63,13 +65,26 @@ void USeagullGameInstance::BeginOnlineSession(bool bKnownNewPlayer)
     const FString UserId = GetHorizonManager()->GetUserId();
     if (bPracticeMode || SaveOwnerId != UserId)
     {
+        ++SessionGeneration;
+        GetHorizonManager()->DiscardValidatedRun();
         SaveData.InitDefaults();
         bSaveLoaded = false;
         bCloudSaveReady = false;
+		GetConfigCache()->ParseFromConfigs({});
+		bConfigLoaded = false;
+		bNewsLoaded = false;
+		CachedNews.Empty();
     }
     bPracticeMode = false;
     SaveOwnerId = UserId;
 	if (bKnownNewPlayer) { bSaveLoaded = true; bCloudSaveReady = true; }
+}
+
+bool USeagullGameInstance::CanMutateProgress()
+{
+    USeagullHorizonManager* HM = GetHorizonManager();
+    return bPracticeMode || (bSaveLoaded && bCloudSaveReady && HM && HM->IsSignedIn()
+        && !SaveOwnerId.IsEmpty() && SaveOwnerId == HM->GetUserId());
 }
 
 void USeagullGameInstance::PersistPracticeSave()

@@ -73,6 +73,13 @@ The exact engine execution still needs verification.
 - Verify cloud progress cannot be overwritten after a failed load. The official
   SDK conflates absent save and network failure; new signups initialize safely,
   existing users require a successful load.
+- Delay authentication, switch to practice, then retry another login; repeat with
+  sign-out. Delay initial cloud/config reads and attempt a purchase/gift. Verify
+  owner changes discard old responses and purchase/gift/manual/run save snapshots
+  arrive in order. Test a cosmetic-only gift and a valid coin gift separately.
+- Verify dark HUD backing, readable font, status wrapping and pause hit testing
+  at 1280×720 and a smaller viewport. Source-only layout changes are not a native
+  visual verification.
 - Run optional gift, feedback and email actions only when deliberately selected;
   no email or production write was performed during this refresh.
 - Package and run a standalone build, then commit generated `.uasset`/`.umap`

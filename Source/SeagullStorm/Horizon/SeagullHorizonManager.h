@@ -26,6 +26,8 @@ public:
 	void SignInEmail(const FString& Email, const FString& Password, TFunction<void(bool)> Callback);
 	void SignUpEmail(const FString& Email, const FString& Password, const FString& Name, TFunction<void(bool)> Callback);
 	void RestoreSession(TFunction<void(bool)> Callback);
+	void SignInWithApple(TFunction<void(bool)> Callback);
+	bool IsAuthenticating() const { return bAuthRequestInFlight; }
 	void SignOut();
 	bool IsSignedIn() const;
 	FString GetDisplayName() const;
@@ -103,6 +105,25 @@ private:
 	UPROPERTY()
 	UHorizonSubsystem* Subsystem = nullptr;
 	FString EvidenceStatus = TEXT("No evidence requested");
+	FString EvidenceRunId;
+	uint64 EvidenceGeneration = 0;
+	bool bEvidenceResolved = false;
+	bool bAuthRequestInFlight = false;
+	bool bSignOutAfterAuth = false;
+	bool bTicketRequestInFlight = false;
+	bool bCloudSaveInFlight = false;
+	struct FPendingCloudSave
+	{
+		FString Json;
+		FString Owner;
+		uint64 Generation = 0;
+		TFunction<void(bool)> Callback;
+	};
+	TArray<FPendingCloudSave> PendingCloudSaves;
+	bool BeginAuthRequest(uint64& Generation, const TFunction<void(bool)>& Callback);
+	void CompleteAuthRequest(uint64 Generation, bool bSuccess, const TFunction<void(bool)>& Callback);
+	bool IsCurrentSession(uint64 Generation, const FString& Owner) const;
+	void DrainCloudSaves();
 	FString GetLeaderboardKey() const;
 
 	UFUNCTION()

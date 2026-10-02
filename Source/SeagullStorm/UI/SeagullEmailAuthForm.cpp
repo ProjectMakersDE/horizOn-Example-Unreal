@@ -125,6 +125,11 @@ void USeagullEmailAuthForm::OnSubmitClicked()
 
 	USeagullHorizonManager* HM = GI->GetHorizonManager();
 	if (!HM) return;
+	if (HM->IsAuthenticating())
+	{
+		if (StatusText) StatusText->SetText(FText::FromString(TEXT("Authentication is already in progress. Retry when it finishes.")));
+		return;
+	}
 
 	if (StatusText) StatusText->SetText(FText::FromString(TEXT("Authenticating...")));
 

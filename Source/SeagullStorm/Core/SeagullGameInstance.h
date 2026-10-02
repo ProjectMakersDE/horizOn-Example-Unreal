@@ -30,10 +30,12 @@ public:
 	bool bCloudSaveReady = false;
 	bool bPracticeMode = false;
 	FString SaveOwnerId;
+	uint64 SessionGeneration = 0;
 
 	void BeginPractice();
 	void BeginOnlineSession(bool bKnownNewPlayer = false);
 	void PersistPracticeSave();
+	bool CanMutateProgress();
 
 	bool bNewsLoaded = false;
 	TArray<FHorizonNewsEntry> CachedNews;

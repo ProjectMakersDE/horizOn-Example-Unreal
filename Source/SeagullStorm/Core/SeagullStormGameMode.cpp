@@ -361,11 +361,18 @@ void ASeagullStormGameMode::EndRun(bool bPlayerDied)
 		{
 			SubmitRunScore(HM, GS->CurrentScore, GS->CurrentWave, CoinsEarned, GS->RunStats.Duration);
 
-			if (!bRunPractice && !GI->bPracticeMode && HM->IsSignedIn() && GI->bCloudSaveReady) HM->SaveData(GI->SaveData.ToJsonString(), [HM](bool bSaveSuccess)
+			const uint64 SaveGeneration = GI->SessionGeneration;
+			const FString SaveOwner = GI->SaveOwnerId;
+			TWeakObjectPtr<USeagullGameInstance> WeakSaveGI(GI);
+			TWeakObjectPtr<USeagullHorizonManager> WeakSaveHM(HM);
+			if (!bRunPractice && !GI->bPracticeMode && HM->IsSignedIn() && GI->bCloudSaveReady) HM->SaveData(GI->SaveData.ToJsonString(), [WeakSaveGI, WeakSaveHM, SaveGeneration, SaveOwner](bool bSaveSuccess)
 			{
-				if (!bSaveSuccess && HM)
+				USeagullGameInstance* Instance = WeakSaveGI.Get();
+				USeagullHorizonManager* Manager = WeakSaveHM.Get();
+				if (!Instance || !Manager || Instance->SessionGeneration != SaveGeneration || Instance->SaveOwnerId != SaveOwner || Instance->bPracticeMode) return;
+				if (!bSaveSuccess)
 				{
-					HM->RecordException(
+					Manager->RecordException(
 						TEXT("SaveData failed"),
 						TEXT("CloudSave SaveData returned bSuccess=false at EndRun"));
 				}

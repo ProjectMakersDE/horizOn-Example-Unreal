@@ -23,7 +23,7 @@ namespace SeagullWidgetStyles
 	constexpr int32 TextFontSize = 20;
 	constexpr int32 SmallFontSize = 16;
 
-	// Press Start 2P loaded straight from the shipped TTF file (no UFont asset needed).
+	// Default engine Regular font; bundled Press Start 2P remains a fallback.
 	FSlateFontInfo GetPixelFont(int32 Size);
 
 	// Flat-color button style with hover/pressed tints and padded content.

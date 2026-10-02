@@ -230,13 +230,16 @@ void USeagullMainHub::LoadHubData()
     }
     GI->BeginOnlineSession();
     const FString ExpectedOwner = GI->SaveOwnerId;
+	const uint64 ExpectedGeneration = GI->SessionGeneration;
 
     // 1. Load Remote Config
 	if (!GI->bConfigLoaded)
 	{
-		HM->LoadAllConfigs([WeakThis, GI, HM, ExpectedOwner](bool bSuccess, const TMap<FString, FString>& Configs)
+		HM->LoadAllConfigs([WeakThis, GI, HM, ExpectedOwner, ExpectedGeneration](bool bSuccess, const TMap<FString, FString>& Configs)
 		{
-			if (bSuccess && GI->SaveOwnerId == ExpectedOwner && !GI->bPracticeMode && WeakThis.IsValid() && WeakThis.Get()->IsInViewport())
+			if (GI->SessionGeneration != ExpectedGeneration || GI->SaveOwnerId != ExpectedOwner || GI->bPracticeMode
+				|| HM->GetUserId() != ExpectedOwner || !WeakThis.IsValid() || !WeakThis.Get()->IsInViewport()) return;
+			if (bSuccess)
 			{
 				GI->GetConfigCache()->ParseFromConfigs(Configs);
 				GI->bConfigLoaded = true;
@@ -261,9 +264,10 @@ void USeagullMainHub::LoadHubData()
 	// 2. Load Cloud Save
 	if (!GI->bSaveLoaded)
 	{
-		HM->LoadData([WeakThis, GI, HM, ExpectedOwner](bool bSuccess, const FString& Data)
+		HM->LoadData([WeakThis, GI, HM, ExpectedOwner, ExpectedGeneration](bool bSuccess, const FString& Data)
 		{
-			if (GI->SaveOwnerId != ExpectedOwner || GI->bPracticeMode || !WeakThis.IsValid() || !WeakThis.Get()->IsInViewport() || GI->bSaveLoaded) return;
+			if (GI->SessionGeneration != ExpectedGeneration || GI->SaveOwnerId != ExpectedOwner || GI->bPracticeMode
+				|| HM->GetUserId() != ExpectedOwner || !WeakThis.IsValid() || !WeakThis.Get()->IsInViewport() || GI->bSaveLoaded) return;
             if (bSuccess && !Data.IsEmpty())
 			{
 				TSharedPtr<FJsonObject> JsonObject;
@@ -335,8 +339,10 @@ void USeagullMainHub::LoadHubData()
 	// 4. Load News (cache in GameInstance for pause menu reuse)
 	if (!GI->bNewsLoaded)
 	{
-		HM->LoadNews(5, TEXT("en"), [WeakThis, GI](bool bSuccess, const TArray<FHorizonNewsEntry>& Entries)
+		HM->LoadNews(5, TEXT("en"), [WeakThis, GI, HM, ExpectedOwner, ExpectedGeneration](bool bSuccess, const TArray<FHorizonNewsEntry>& Entries)
 		{
+			if (GI->SessionGeneration != ExpectedGeneration || GI->SaveOwnerId != ExpectedOwner || GI->bPracticeMode
+				|| HM->GetUserId() != ExpectedOwner || !WeakThis.IsValid() || !WeakThis.Get()->IsInViewport()) return;
 			if (bSuccess)
 			{
 				GI->CachedNews = Entries;
@@ -362,7 +368,11 @@ void USeagullMainHub::RefreshDisplay()
 	if (!GI) return;
 
 	if (SessionText) SessionText->SetText(FText::FromString(GI->bPracticeMode ? FString(TEXT("Practice / local progress / WASD or arrows to move / weapons fire automatically")) : FString::Printf(TEXT("Online: %s / WASD or arrows / auto-fire / Esc to pause"), *GI->GetHorizonManager()->GetDisplayName())));
-	if (GiftCodeButton) GiftCodeButton->SetIsEnabled(!GI->bPracticeMode);
+	const bool bCanMutate = GI->CanMutateProgress();
+	if (GiftCodeButton) GiftCodeButton->SetIsEnabled(!GI->bPracticeMode && bCanMutate);
+	UButton* PurchaseButtons[] = {BuySpeedButton, BuyDamageButton, BuyHPButton, BuyMagnetButton};
+	for (UButton* Button : PurchaseButtons)
+		if (Button) Button->SetIsEnabled(bCanMutate);
 	if (FeedbackButton) FeedbackButton->SetIsEnabled(!GI->bPracticeMode);
 	if (CoinsText)
 		CoinsText->SetText(FText::FromString(FString::Printf(TEXT("Coins: %d"), GI->SaveData.Coins)));
@@ -442,7 +452,7 @@ void USeagullMainHub::OnBuyMagnet() { TryBuyUpgrade(TEXT("magnet")); }
 void USeagullMainHub::TryBuyUpgrade(const FString& Key)
 {
 	USeagullGameInstance* GI = Cast<USeagullGameInstance>(UGameplayStatics::GetGameInstance(GetWorld()));
-	if (!GI || !GI->GetConfigCache()) return;
+	if (!GI || !GI->GetConfigCache() || !GI->CanMutateProgress()) return;
 
 	int32 CurrentLevel = GI->SaveData.GetUpgradeLevel(Key);
 	int32 MaxLevel = GI->GetConfigCache()->GetUpgradeMax(Key);
@@ -470,6 +480,10 @@ void USeagullMainHub::TryBuyUpgrade(const FString& Key)
 	{
 		int32 NewLevel = CurrentLevel + 1;
 		HM->RecordBreadcrumb(TEXT("user_action"), FString::Printf(TEXT("bought_%s_%d"), *Key, NewLevel));
+		if (!GI->bPracticeMode) HM->SaveData(GI->SaveData.ToJsonString(), [](bool bSaved)
+		{
+			if (!bSaved) UE_LOG(LogSeagullStorm, Warning, TEXT("Upgrade purchase remains in memory; cloud save failed or player session changed."));
+		});
 	}
 
 	UE_LOG(LogSeagullStorm, Log, TEXT("Bought %s upgrade: level %d -> %d (cost %d)"), *Key, CurrentLevel, CurrentLevel + 1, Cost);

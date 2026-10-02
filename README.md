@@ -6,7 +6,8 @@ three-minute tide before defeating the octopus. Progress buys speed, damage,
 health and magnet upgrades for the next run.
 
 The refresh includes shared cel-shaded artwork, horizOn charcoal/cream/orange/teal
-styling, viewport-fitting title/SDK panels, immediate first waves, auto-aimed feathers, visible poison hazards,
+styling, readable default engine fonts, charcoal HUD backing, viewport-fitting
+title/SDK panels, immediate first waves, auto-aimed feathers, visible poison hazards,
 healing drops every twelve kills and queued upgrade choices. The original atlas
 files remain available for compatibility.
 
@@ -68,8 +69,15 @@ lives outside the plugin and is preserved.
   players may initialize a new cloud save. Restored players require a successful
   load before writes; the SDK currently reports both missing saves and transport
   errors through the same `false` callback, so this case stays read-only.
+- Purchases and gifts wait for loaded progress. Purchases, manual saves, gifts and
+  run-end snapshots are written in order for their original owner. Gift coin
+  rewards require an explicit positive whole `coins` value; cosmetic-only gifts
+  do not manufacture coins.
 - Late callbacks cannot overwrite a newer run or an explicit practice choice.
-  Cloud loads are discarded if the owner changes or gameplay has begun.
+  Authentication uses a persistent gate across title widgets; a pending request
+  must finish before another begins. Sign-out clears a late authentication result.
+  Cloud/config loads and gift callbacks carry the original session generation and
+  owner. Cloud loads are discarded if gameplay has begun.
 
 The input evidence format is shared with Unity/Godot: a version byte, little-endian
 seed and tick-delta events for movement, upgrade choices and run end, capped at
@@ -138,14 +146,19 @@ Engine-independent checks:
 ```sh
 python3 Scripts/verify_project.py
 python3 Tests/run_input_log_test.py
+python3 Tests/run_session_boundary_test.py
 python3 Tests/run_sdk_contracts.py --sdk-source /path/to/horizOn-SDK-Unreal
 ```
 
 The input-log check compiles the real example implementation against a small
 array boundary. The SDK runner uses official v1.7.0 fixtures against this embedded
 plugin: leaderboard, gift code, player profile, Validated Actions and actual
-anonymous-auth/cloud-save production methods. All passed on October 2, 2026.
-These checks make no backend calls and do not compile Unreal game modules.
+anonymous-auth/cloud-save production methods. The session-boundary check compiles
+the real facade methods against delayed SDK boundaries and verifies auth/practice/
+sign-out races, stale config/save reads, preload purchase gates, ordered owner-bound
+writes, ticket serialization and synchronous/stale evidence events. All passed on
+October 2, 2026. These checks make no backend calls and do not compile Unreal game
+modules, reflection or Slate widgets.
 
 Next verification on Unreal 5.5: compile the editor target, run the asset bootstrap,
 inspect sprites and map, play a practice run through upgrades/death/retry,
