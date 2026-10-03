@@ -1,4 +1,5 @@
 #include "Enemies/SeagullEnemyBase.h"
+#include "Animation/SeagullCutoutRigComponent.h"
 #include "Player/SeagullPlayerPawn.h"
 #include "Player/SeagullHealthComponent.h"
 #include "Pickups/SeagullPickup_XP.h"
@@ -34,6 +35,11 @@ void ASeagullEnemyBase::BeginPlay()
 {
 	Super::BeginPlay();
 	CollisionComponent->OnComponentBeginOverlap.AddDynamic(this, &ASeagullEnemyBase::OnOverlapBegin);
+	if (CutoutRig && CutoutRig->Initialize(SeagullCutout::Character::Crab, 38.f))
+	{
+		SpriteComponent->SetVisibility(false);
+		SpriteComponent->Stop();
+	}
 }
 
 void ASeagullEnemyBase::LoadFlipbooks(const TCHAR* WalkPath, const TCHAR* DeathPath)
@@ -53,10 +59,16 @@ void ASeagullEnemyBase::Tick(float DeltaTime)
 
 	if (IsDead()) return;
 
+	const FVector PreviousLocation = GetActorLocation();
 	MoveTowardPlayer(DeltaTime);
 	AttackTimer -= DeltaTime;
     HitFlashTimer = FMath::Max(0.f, HitFlashTimer - DeltaTime);
-    if (SpriteComponent)
+    if (CutoutRig && CutoutRig->IsReady())
+    {
+        const bool Moving = !PreviousLocation.Equals(GetActorLocation(), .001f);
+        CutoutRig->UpdatePose(DeltaTime, Moving, VisualFacing, HitFlashTimer > 0.f ? SeagullColors::Orange : FLinearColor::White);
+    }
+    else if (SpriteComponent)
     {
         SpriteComponent->SetSpriteColor(HitFlashTimer > 0.f ? SeagullColors::Orange : FLinearColor::White);
         const float Bob = FMath::Sin(GetWorld()->GetTimeSeconds() * 7.f + GetUniqueID()) * 1.5f;
@@ -68,6 +80,7 @@ void ASeagullEnemyBase::Tick(float DeltaTime)
     {
         Player->HealthComponent->TakeDamage(ContactDamage);
         AttackTimer = AttackCooldown;
+        if (CutoutRig) CutoutRig->PlayAttack();
     }
 }
 
@@ -86,6 +99,7 @@ void ASeagullEnemyBase::TakeDamageAmount(int32 Amount)
 
 	CurrentHP -= FMath::Max(0, Amount);
 	HitFlashTimer = 0.15f;
+	if (CutoutRig) CutoutRig->PlayHurt();
 
 	// Play enemy hit SFX
 	UWorld* World = GetWorld();
@@ -112,6 +126,7 @@ void ASeagullEnemyBase::MoveTowardPlayer(float DeltaTime)
 	FVector Dir = (Player->GetActorLocation() - GetActorLocation()).GetSafeNormal();
 	FVector NewLoc = GetActorLocation() + Dir * MoveSpeed * DeltaTime;
 	SetActorLocation(NewLoc);
+	if (FMath::Abs(Dir.X) > KINDA_SMALL_NUMBER) VisualFacing = Dir.X < 0.f ? -1.f : 1.f;
 
 	// Flip sprite based on horizontal direction
 	if (SpriteComponent)
@@ -123,6 +138,7 @@ void ASeagullEnemyBase::MoveTowardPlayer(float DeltaTime)
 
 void ASeagullEnemyBase::OnDeath()
 {
+	if (CutoutRig) CutoutRig->Freeze();
 	// Spawn XP pickup
 	UWorld* World = GetWorld();
 	if (World)
@@ -179,6 +195,7 @@ void ASeagullEnemyBase::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AAct
 	{
 		Player->HealthComponent->TakeDamage(ContactDamage);
 		AttackTimer = AttackCooldown;
+		if (CutoutRig) CutoutRig->PlayAttack();
 
 		// Play enemy attack SFX
 		UWorld* World = GetWorld();

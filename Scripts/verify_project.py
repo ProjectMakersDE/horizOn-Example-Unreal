@@ -41,6 +41,25 @@ for name in ["seagull_hero", "enemy_crab", "enemy_jellyfish", "enemy_pirate", "e
             check(data[25] == 6, "RGBA color type: " + name)
 print("SDK snapshot: {tag} / {commit}".format(**lock))
 print("Shared PNG assets: 9 / manifest present")
+rig = json.loads((ROOT / "Content/Textures/Cutout/rig.json").read_text())
+check(rig["schemaVersion"] == 1, "Cutout schema")
+parts = []
+for family in ("gull", "crab"):
+    definition = rig["characters"][family]
+    check([part["layer"] for part in definition["parts"]] == list(range(len(definition["parts"]))), "Cutout layer order: " + family)
+    for part in definition["parts"]:
+        path = ROOT / "Content/Textures/Cutout" / part["file"]
+        data = path.read_bytes() if path.is_file() else b""
+        check(hashlib.sha256(data).hexdigest() == part["sha256"], "Cutout hash: " + part["file"])
+        check(len(data) >= 26 and data[:8] == b"\x89PNG\r\n\x1a\n" and data[25] == 6, "Cutout RGBA: " + part["file"])
+        if len(data) >= 24:
+            check(list(struct.unpack(">II", data[16:24])) == definition["canvas"], "Cutout canvas: " + part["file"])
+        parts.append(path)
+shadow = ROOT / "Content/Textures/Cutout" / rig["shadow"]["file"]
+check(shadow.is_file() and hashlib.sha256(shadow.read_bytes()).hexdigest() == rig["shadow"]["sha256"], "Cutout shadow hash")
+check(len(parts) == 16, "Cutout part count")
+check('+DirectoriesToAlwaysCook=(Path="/Game/Sprites/Cutout")' in (ROOT / "Config/DefaultGame.ini").read_text(), "Runtime cutout assets included in cooking")
+print("Cutout PNG assets: 16 parts + separate shadow / hashes, RGBA, canvases and layers")
 map_exists = (ROOT / "Content" / "Maps" / "MainMap.umap").is_file()
 print("Unreal editor bootstrap: " + ("map exists; engine build/play still required" if map_exists else "PENDING / no MainMap.umap; run Scripts/setup_editor_assets.py inside Unreal"))
 if failures:

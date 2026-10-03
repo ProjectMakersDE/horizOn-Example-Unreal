@@ -11,6 +11,13 @@ title/SDK panels, immediate first waves, auto-aimed feathers, visible poison haz
 healing drops every twelve kills and queued upgrade choices. The original atlas
 files remain available for compatibility.
 
+The gull and crab have separate cutout limbs and body parts from the accepted
+October 3 animation mockup. After editor import, actor-driven idle, movement,
+attack and hurt poses rotate those parts around their original pivots. Original
+full-image flipbooks are hidden while the complete rig is available. Actor
+collision, movement and 44/38-unit full-canvas widths stay unchanged.
+Moving feet/legs retain their walk cycle during auto-fire wing/claw attacks.
+
 **Unreal readiness:** this repository contains source and loose PNG/OGG assets.
 The October 2, 2026 host has no Unreal installation. UnrealBuildTool compilation,
 the editor import script, Play In Editor and packaging remain unverified. There
@@ -145,6 +152,7 @@ Engine-independent checks:
 
 ```sh
 python3 Scripts/verify_project.py
+python3 Tests/run_cutout_pose_test.py
 python3 Tests/run_input_log_test.py
 python3 Tests/run_session_boundary_test.py
 python3 Tests/run_sdk_contracts.py --sdk-source /path/to/horizOn-SDK-Unreal
@@ -160,6 +168,14 @@ writes, ticket serialization and synchronous/stale evidence events. All passed o
 October 2, 2026. These checks make no backend calls and do not compile Unreal game
 modules, reflection or Slate widgets.
 
+The October 3 cutout check compiles the production pose math and checks the
+accepted manifest's pivots/layers, gait amplitudes, wing/claw attacks, hurt
+priority, paused clocks and facing. It verifies canvas x-right/y-down maps into
+arena x-right/y-up and clockwise angles become negative world yaw. The renderer
+maps Paper2D local X to world X and local Z to world Y, then mirrors the whole
+rig parent. Integrity checks verify all 16 part PNG hashes, RGBA/full-canvas
+dimensions and the separate shadow. These passed locally, without native Unreal.
+
 Next verification on Unreal 5.5: compile the editor target, run the asset bootstrap,
 inspect sprites and map, play a practice run through upgrades/death/retry,
 exercise a QA player's ticket/submit/rank/state flow, then package and launch a
@@ -171,5 +187,10 @@ New shared artwork was generated through OpenRouter with
 `google/gemini-2.5-flash-image` on October 2, 2026. Its transparent sprite backgrounds
 were keyed into true RGBA and visually inspected; the arena is opaque.
 `Content/Textures/asset-manifest.json` records provenance and file hashes.
+
+`Content/Textures/Cutout/rig.json` records the accepted mockup's 16 part PNGs,
+custom pivots, ordered layers and separate shadow. Limbs and closed body surfaces
+were rebuilt from its vector paths. The gull head is clipped from the original
+shared artwork. These are cutout parts animated in code.
 
 Code: [MIT](LICENSE). Font and artwork provenance: [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).

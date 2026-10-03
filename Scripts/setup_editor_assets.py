@@ -1,12 +1,13 @@
 """Run via Unreal 5.5 Tools > Execute Python Script after compiling the project.
 
-Imports the shared RGBA art, makes canonical one-frame Paper2D flipbooks and an
-empty boot map. Existing generated assets are reused, so reruns preserve edits.
+Imports shared RGBA art, custom-pivot cutout sprites, fallback one-frame
+Paper2D flipbooks and an empty boot map. Existing generated assets are reused.
 Not executed on the October 2026 refresh host: Unreal Engine is not installed.
 Epic API references are recorded in EDITOR_SETUP.md.
 """
 from pathlib import Path
 import struct
+import json
 import unreal
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -40,20 +41,26 @@ def dimensions(path):
     return struct.unpack(">II", header[16:24])
 
 
-def sprite(name, filename, world_size, source_rect=None):
-    existing = LIB.load_asset("/Game/Sprites/" + name)
+def sprite(name, filename, world_size, source_rect=None, destination="/Game/Sprites", pivot=None, translucent=False):
+    existing = LIB.load_asset(destination + "/" + name)
     if existing:
         return existing
     path = ROOT / "Content" / "Textures" / filename
-    texture = import_file(path, "/Game/Textures")
+    texture_destination = "/Game/Textures" + ("/" + str(Path(filename).parent).replace("\\", "/") if Path(filename).parent != Path(".") else "")
+    LIB.make_directory(texture_destination)
+    texture = import_file(path, texture_destination)
     texture.set_editor_property("compression_settings", unreal.TextureCompressionSettings.TC_EDITOR_ICON)
     texture.set_editor_property("mip_gen_settings", unreal.TextureMipGenSettings.TMGS_NO_MIPMAPS)
     texture.set_editor_property("filter", unreal.TextureFilter.TF_BILINEAR)
+    if pivot:
+        texture.set_editor_property("address_x", unreal.TextureAddress.TA_CLAMP)
+        texture.set_editor_property("address_y", unreal.TextureAddress.TA_CLAMP)
+        texture.set_editor_property("compression_no_alpha", False)
     texture.set_editor_property("srgb", True)
     LIB.save_loaded_asset(texture)
     texture_width, texture_height = dimensions(path)
     x, y, width, height = source_rect or (0, 0, texture_width, texture_height)
-    asset = TOOLS.create_asset(name, "/Game/Sprites", unreal.PaperSprite, unreal.PaperSpriteFactory())
+    asset = TOOLS.create_asset(name, destination, unreal.PaperSprite, unreal.PaperSpriteFactory())
     if not asset:
         raise RuntimeError("Sprite creation failed: " + name)
     # set_editor_property emits editor change notifications to rebuild sprite geometry.
@@ -62,9 +69,11 @@ def sprite(name, filename, world_size, source_rect=None):
     asset.set_editor_property("source_dimension", unreal.Vector2D(width, height))
     asset.set_editor_property("source_texture_dimension", unreal.Vector2D(texture_width, texture_height))
     asset.set_editor_property("pixels_per_unreal_unit", width / world_size)
-    asset.set_editor_property("pivot_mode", unreal.SpritePivotMode.CENTER_CENTER)
+    asset.set_editor_property("pivot_mode", unreal.SpritePivotMode.CUSTOM if pivot else unreal.SpritePivotMode.CENTER_CENTER)
+    if pivot:
+        asset.set_editor_property("custom_pivot_point", unreal.Vector2D(*pivot))
     asset.set_editor_property("sprite_collision_domain", unreal.SpriteCollisionMode.NONE)
-    material = LIB.load_asset("/Paper2D/MaskedUnlitSpriteMaterial")
+    material = LIB.load_asset("/Paper2D/TranslucentUnlitSpriteMaterial" if translucent else "/Paper2D/MaskedUnlitSpriteMaterial")
     if not material:
         raise RuntimeError("Paper2D unlit material missing. Enable Paper2D.")
     asset.set_editor_property("default_material", material)
@@ -89,6 +98,15 @@ def flipbook(name, image):
 def main():
     for folder in ("/Game/Textures", "/Game/Sprites", "/Game/Flipbooks", "/Game/Materials", "/Game/Maps"):
         LIB.make_directory(folder)
+    cutout_destination = "/Game/Sprites/Cutout"
+    LIB.make_directory(cutout_destination)
+    rig = json.loads((ROOT / "Content/Textures/Cutout/rig.json").read_text())
+    for family, world_width in (("gull", 44), ("crab", 38)):
+        for part in rig["characters"][family]["parts"]:
+            sprite("SP_Cutout_" + family + "_" + part["name"], "Cutout/" + part["file"], world_width,
+                   destination=cutout_destination, pivot=part["pivot"])
+    sprite("SP_Cutout_shadow", "Cutout/" + rig["shadow"]["file"], 1,
+           destination=cutout_destination, pivot=rig["shadow"]["pivot"], translucent=True)
     sources = {
         "Seagull": ("seagull_hero.png", 44, ["Seagull_Idle", "Seagull_Walk", "Seagull_Hurt", "Seagull_Death"]),
         "Crab": ("enemy_crab.png", 38, ["Crab_Walk", "Crab_Death"]),

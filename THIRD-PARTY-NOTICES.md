@@ -15,6 +15,12 @@ The square-headed character follows the supplied horizOn brand reference.
 records how the assets were made; it does not assert an attribution requirement
 from the image model. Original atlases and audio remain unchanged.
 
+The October 3 cutout assets in `Content/Textures/Cutout/` reproduce the accepted
+animation mockup's rebuilt vector limbs and closed body surfaces. The gull head
+is clipped from the shared original seagull PNG. `rig.json` records source,
+pixel pivots, layer order and PNG hashes. No new model image generation was used
+for these cutout parts.
+
 ## Press Start 2P font
 
 - File: `Content/Fonts/PressStart2P-Regular.ttf`
