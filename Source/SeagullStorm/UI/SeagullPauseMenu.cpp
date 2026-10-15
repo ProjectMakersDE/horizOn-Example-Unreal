@@ -5,6 +5,7 @@
 #include "Core/SeagullPlayerController.h"
 #include "Core/SeagullStormGameMode.h"
 #include "Core/SeagullTypes.h"
+#include "Core/SeagullGameInstance.h"
 #include "Blueprint/WidgetTree.h"
 #include "Components/Border.h"
 #include "Components/Button.h"
@@ -97,6 +98,7 @@ void USeagullPauseMenu::OnNewsClicked()
 
 void USeagullPauseMenu::OnFeedbackClicked()
 {
+	if (const USeagullGameInstance* GI = Cast<USeagullGameInstance>(UGameplayStatics::GetGameInstance(GetWorld()))) { if (GI->bPracticeMode) return; }
 	APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
 	if (!PC) return;
 

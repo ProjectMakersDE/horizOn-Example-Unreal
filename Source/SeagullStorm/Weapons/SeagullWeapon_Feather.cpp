@@ -4,6 +4,8 @@
 #include "Core/SeagullStormGameMode.h"
 #include "Audio/SeagullAudioManager.h"
 #include "SeagullStorm.h"
+#include "Enemies/SeagullEnemyBase.h"
+#include "EngineUtils.h"
 
 USeagullWeapon_Feather::USeagullWeapon_Feather()
 {
@@ -25,6 +27,18 @@ void USeagullWeapon_Feather::Fire()
 
 	FVector SpawnLoc = Owner->GetActorLocation();
 	FVector2D Dir = Player->LastMoveDirection;
+    float NearestDistance = FMath::Square(420.f);
+    for (TActorIterator<ASeagullEnemyBase> It(World); It; ++It)
+    {
+        if (It->IsDead()) continue;
+        const FVector ToEnemy = It->GetActorLocation() - SpawnLoc;
+        const float Distance = ToEnemy.SizeSquared();
+        if (Distance < NearestDistance)
+        {
+            NearestDistance = Distance;
+            Dir = FVector2D(ToEnemy.X, ToEnemy.Y).GetSafeNormal();
+        }
+    }
 
 	for (int32 i = 0; i < ProjectileCount; i++)
 	{

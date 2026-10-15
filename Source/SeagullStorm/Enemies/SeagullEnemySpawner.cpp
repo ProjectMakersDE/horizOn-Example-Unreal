@@ -15,13 +15,14 @@ void USeagullEnemySpawner::Initialize(USeagullConfigCache* Config)
 {
 	ConfigCache = Config;
 	CurrentWave = 0;
-	WaveTimer = 0.f;
+	WaveTimer = WaveInterval; // The first wave starts immediately.
 
 	if (Config)
 	{
 		WaveInterval = Config->WaveIntervalSeconds;
 		WaveEnemyCountBase = Config->WaveEnemyCountBase;
 		WaveEnemyCountGrowth = Config->WaveEnemyCountGrowth;
+		WaveTimer = WaveInterval;
 	}
 }
 
@@ -64,7 +65,7 @@ void USeagullEnemySpawner::SpawnWave(UWorld* World)
 		}
 	}
 
-	int32 EnemyCount = static_cast<int32>(WaveEnemyCountBase * FMath::Pow(WaveEnemyCountGrowth, static_cast<float>(CurrentWave - 1)));
+	int32 EnemyCount = FMath::Clamp(static_cast<int32>(WaveEnemyCountBase * FMath::Pow(WaveEnemyCountGrowth, static_cast<float>(CurrentWave - 1))), 1, 80);
 
 	for (int32 i = 0; i < EnemyCount; i++)
 	{

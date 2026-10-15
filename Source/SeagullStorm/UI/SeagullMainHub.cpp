@@ -1,4 +1,5 @@
 #include "UI/SeagullMainHub.h"
+#include "UI/SeagullSDKPanel.h"
 #include "UI/SeagullGiftCodePanel.h"
 #include "UI/SeagullFeedbackForm.h"
 #include "UI/SeagullSettingsPanel.h"
@@ -52,6 +53,7 @@ void USeagullMainHub::NativeOnInitialized()
 	UHorizontalBox* Header = WidgetTree->ConstructWidget<UHorizontalBox>(UHorizontalBox::StaticClass());
 	UTextBlock* HubTitle = SeagullWidgetStyles::MakeText(WidgetTree, TEXT("Seagull Storm"),
 		SeagullWidgetStyles::TextFontSize, SeagullColors::Orange);
+	HubTitle->SetAutoWrapText(true);
 	if (UHorizontalBoxSlot* TitleSlot = Header->AddChildToHorizontalBox(HubTitle))
 	{
 		TitleSlot->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
@@ -59,6 +61,7 @@ void USeagullMainHub::NativeOnInitialized()
 	}
 	CoinsText = SeagullWidgetStyles::MakeText(WidgetTree, TEXT("Coins: 0"),
 		SeagullWidgetStyles::TextFontSize, SeagullColors::XPGold, TEXT("CoinsText"));
+	CoinsText->SetAutoWrapText(true);
 	if (UHorizontalBoxSlot* CoinsSlot = Header->AddChildToHorizontalBox(CoinsText))
 	{
 		CoinsSlot->SetPadding(FMargin(24.f, 0.f, 0.f, 0.f));
@@ -66,6 +69,7 @@ void USeagullMainHub::NativeOnInitialized()
 	}
 	HighscoreText = SeagullWidgetStyles::MakeText(WidgetTree, TEXT("Best: 0"),
 		SeagullWidgetStyles::TextFontSize, SeagullColors::LightText, TEXT("HighscoreText"));
+	HighscoreText->SetAutoWrapText(true);
 	if (UHorizontalBoxSlot* BestSlot = Header->AddChildToHorizontalBox(HighscoreText))
 	{
 		BestSlot->SetPadding(FMargin(24.f, 0.f, 0.f, 0.f));
@@ -75,6 +79,10 @@ void USeagullMainHub::NativeOnInitialized()
 	{
 		HeaderSlot->SetPadding(FMargin(0.f, 0.f, 0.f, 20.f));
 	}
+
+	SessionText = SeagullWidgetStyles::MakeText(WidgetTree, TEXT("Practice / local progress"), 16, SeagullColors::Sand);
+	SessionText->SetAutoWrapText(true);
+	SeagullWidgetStyles::AddRow(Screen, SessionText, 8.f);
 
 	// --- Body: upgrades (left) | play/leaderboard/news (right) ---
 	UHorizontalBox* Body = WidgetTree->ConstructWidget<UHorizontalBox>(UHorizontalBox::StaticClass());
@@ -113,7 +121,7 @@ void USeagullMainHub::NativeOnInitialized()
 		RightSlot->SetSize(RightSize);
 	}
 
-	PlayButton = SeagullWidgetStyles::MakeTextButton(WidgetTree, TEXT("PLAY"),
+	PlayButton = SeagullWidgetStyles::MakeTextButton(WidgetTree, TEXT("START RUN"),
 		SeagullColors::Orange, SeagullColors::DarkText, 32, TEXT("PlayButton"));
 	SeagullWidgetStyles::AddRow(RightColumn, PlayButton, 6.f);
 
@@ -124,6 +132,7 @@ void USeagullMainHub::NativeOnInitialized()
 	UScrollBox* LeaderboardScroll = WidgetTree->ConstructWidget<UScrollBox>(UScrollBox::StaticClass());
 	LeaderboardBox = WidgetTree->ConstructWidget<UVerticalBox>(UVerticalBox::StaticClass(), TEXT("LeaderboardBox"));
 	LeaderboardScroll->AddChild(LeaderboardBox);
+	SeagullWidgetStyles::AddRow(LeaderboardBox, SeagullWidgetStyles::MakeText(WidgetTree, TEXT("Connect a player to view ranked scores."), 16, SeagullColors::Sand));
 	if (UVerticalBoxSlot* ScrollSlot = RightColumn->AddChildToVerticalBox(LeaderboardScroll))
 	{
 		ScrollSlot->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
@@ -136,6 +145,7 @@ void USeagullMainHub::NativeOnInitialized()
 
 	NewsBox = WidgetTree->ConstructWidget<UVerticalBox>(UVerticalBox::StaticClass(), TEXT("NewsBox"));
 	SeagullWidgetStyles::AddRow(RightColumn, NewsBox, 4.f);
+	SeagullWidgetStyles::AddRow(NewsBox, SeagullWidgetStyles::MakeText(WidgetTree, TEXT("Coastal bulletin / online news appears here."), 16, SeagullColors::Sand));
 
 	// Bottom action buttons
 	UHorizontalBox* ActionRow = WidgetTree->ConstructWidget<UHorizontalBox>(UHorizontalBox::StaticClass());
@@ -145,7 +155,9 @@ void USeagullMainHub::NativeOnInitialized()
 		SeagullColors::Teal, SeagullColors::LightText, SeagullWidgetStyles::SmallFontSize, TEXT("FeedbackButton"));
 	SettingsButton = SeagullWidgetStyles::MakeTextButton(WidgetTree, TEXT("Settings"),
 		SeagullColors::Teal, SeagullColors::LightText, SeagullWidgetStyles::SmallFontSize, TEXT("SettingsButton"));
-	UButton* ActionButtons[] = { GiftCodeButton, FeedbackButton, SettingsButton };
+	SDKButton = SeagullWidgetStyles::MakeTextButton(WidgetTree, TEXT("SDK tools"), SeagullColors::Teal, SeagullColors::LightText, 16);
+	SDKButton->OnClicked.AddDynamic(this, &USeagullMainHub::OnSDKClicked);
+	UButton* ActionButtons[] = { GiftCodeButton, FeedbackButton, SDKButton, SettingsButton };
 	for (UButton* ActionButton : ActionButtons)
 	{
 		if (UHorizontalBoxSlot* ActionSlot = ActionRow->AddChildToHorizontalBox(ActionButton))
@@ -211,11 +223,22 @@ void USeagullMainHub::LoadHubData()
 	// GameInstance and stay valid for the whole session.
 	TWeakObjectPtr<USeagullMainHub> WeakThis(this);
 
-	// 1. Load Remote Config
+	if (GI->bPracticeMode)
+    {
+        RefreshDisplay();
+        return;
+    }
+    GI->BeginOnlineSession();
+    const FString ExpectedOwner = GI->SaveOwnerId;
+	const uint64 ExpectedGeneration = GI->SessionGeneration;
+
+    // 1. Load Remote Config
 	if (!GI->bConfigLoaded)
 	{
-		HM->LoadAllConfigs([WeakThis, GI, HM](bool bSuccess, const TMap<FString, FString>& Configs)
+		HM->LoadAllConfigs([WeakThis, GI, HM, ExpectedOwner, ExpectedGeneration](bool bSuccess, const TMap<FString, FString>& Configs)
 		{
+			if (GI->SessionGeneration != ExpectedGeneration || GI->SaveOwnerId != ExpectedOwner || GI->bPracticeMode
+				|| HM->GetUserId() != ExpectedOwner || !WeakThis.IsValid() || !WeakThis.Get()->IsInViewport()) return;
 			if (bSuccess)
 			{
 				GI->GetConfigCache()->ParseFromConfigs(Configs);
@@ -241,15 +264,18 @@ void USeagullMainHub::LoadHubData()
 	// 2. Load Cloud Save
 	if (!GI->bSaveLoaded)
 	{
-		HM->LoadData([WeakThis, GI, HM](bool bSuccess, const FString& Data)
+		HM->LoadData([WeakThis, GI, HM, ExpectedOwner, ExpectedGeneration](bool bSuccess, const FString& Data)
 		{
-			if (bSuccess && !Data.IsEmpty())
+			if (GI->SessionGeneration != ExpectedGeneration || GI->SaveOwnerId != ExpectedOwner || GI->bPracticeMode
+				|| HM->GetUserId() != ExpectedOwner || !WeakThis.IsValid() || !WeakThis.Get()->IsInViewport() || GI->bSaveLoaded) return;
+            if (bSuccess && !Data.IsEmpty())
 			{
 				TSharedPtr<FJsonObject> JsonObject;
 				TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(Data);
 				if (FJsonSerializer::Deserialize(Reader, JsonObject) && JsonObject.IsValid())
 				{
 					GI->SaveData = FSeagullSaveData::FromJsonString(Data);
+					GI->bCloudSaveReady = true;
 					GI->bSaveLoaded = true;
 					UE_LOG(LogSeagullStorm, Log, TEXT("Cloud Save loaded: %d coins"), GI->SaveData.Coins);
 				}
@@ -260,7 +286,7 @@ void USeagullMainHub::LoadHubData()
 					{
 						HM->RecordException(
 							TEXT("Cloud save JSON deserialization failed"),
-							FString::Printf(TEXT("Data length: %d, snippet: %s"), Data.Len(), *Data.Left(200)));
+							FString::Printf(TEXT("Data length: %d"), Data.Len()));
 					}
 					GI->SaveData.InitDefaults();
 					GI->bSaveLoaded = true;
@@ -285,6 +311,7 @@ void USeagullMainHub::LoadHubData()
 		if (bSuccess && Hub && Hub->LeaderboardBox)
 		{
 			Hub->LeaderboardBox->ClearChildren();
+			if (Entries.IsEmpty()) SeagullWidgetStyles::AddRow(Hub->LeaderboardBox, SeagullWidgetStyles::MakeText(Hub->WidgetTree, TEXT("No scores on this board yet."), 16, SeagullColors::Sand));
 			for (const FHorizonLeaderboardEntry& Entry : Entries)
 			{
 				UTextBlock* Row = NewObject<UTextBlock>(Hub);
@@ -298,6 +325,11 @@ void USeagullMainHub::LoadHubData()
 		}
 		else if (!bSuccess && HM)
 		{
+			if (Hub && Hub->LeaderboardBox)
+			{
+				Hub->LeaderboardBox->ClearChildren();
+				SeagullWidgetStyles::AddRow(Hub->LeaderboardBox, SeagullWidgetStyles::MakeText(Hub->WidgetTree, TEXT("Leaderboard unavailable / practice is ready."), 16, SeagullColors::Sand));
+			}
 			HM->RecordException(
 				TEXT("Leaderboard GetTop failed"),
 				TEXT("GetTop returned bSuccess=false"));
@@ -307,8 +339,10 @@ void USeagullMainHub::LoadHubData()
 	// 4. Load News (cache in GameInstance for pause menu reuse)
 	if (!GI->bNewsLoaded)
 	{
-		HM->LoadNews(5, TEXT("en"), [WeakThis, GI](bool bSuccess, const TArray<FHorizonNewsEntry>& Entries)
+		HM->LoadNews(5, TEXT("en"), [WeakThis, GI, HM, ExpectedOwner, ExpectedGeneration](bool bSuccess, const TArray<FHorizonNewsEntry>& Entries)
 		{
+			if (GI->SessionGeneration != ExpectedGeneration || GI->SaveOwnerId != ExpectedOwner || GI->bPracticeMode
+				|| HM->GetUserId() != ExpectedOwner || !WeakThis.IsValid() || !WeakThis.Get()->IsInViewport()) return;
 			if (bSuccess)
 			{
 				GI->CachedNews = Entries;
@@ -333,6 +367,13 @@ void USeagullMainHub::RefreshDisplay()
 	USeagullGameInstance* GI = Cast<USeagullGameInstance>(UGameplayStatics::GetGameInstance(GetWorld()));
 	if (!GI) return;
 
+	if (SessionText) SessionText->SetText(FText::FromString(GI->bPracticeMode ? FString(TEXT("Practice / local progress / WASD or arrows to move / weapons fire automatically")) : FString::Printf(TEXT("Online: %s / WASD or arrows / auto-fire / Esc to pause"), *GI->GetHorizonManager()->GetDisplayName())));
+	const bool bCanMutate = GI->CanMutateProgress();
+	if (GiftCodeButton) GiftCodeButton->SetIsEnabled(!GI->bPracticeMode && bCanMutate);
+	UButton* PurchaseButtons[] = {BuySpeedButton, BuyDamageButton, BuyHPButton, BuyMagnetButton};
+	for (UButton* Button : PurchaseButtons)
+		if (Button) Button->SetIsEnabled(bCanMutate);
+	if (FeedbackButton) FeedbackButton->SetIsEnabled(!GI->bPracticeMode);
 	if (CoinsText)
 		CoinsText->SetText(FText::FromString(FString::Printf(TEXT("Coins: %d"), GI->SaveData.Coins)));
 	if (HighscoreText)
@@ -411,7 +452,7 @@ void USeagullMainHub::OnBuyMagnet() { TryBuyUpgrade(TEXT("magnet")); }
 void USeagullMainHub::TryBuyUpgrade(const FString& Key)
 {
 	USeagullGameInstance* GI = Cast<USeagullGameInstance>(UGameplayStatics::GetGameInstance(GetWorld()));
-	if (!GI || !GI->GetConfigCache()) return;
+	if (!GI || !GI->GetConfigCache() || !GI->CanMutateProgress()) return;
 
 	int32 CurrentLevel = GI->SaveData.GetUpgradeLevel(Key);
 	int32 MaxLevel = GI->GetConfigCache()->GetUpgradeMax(Key);
@@ -431,6 +472,7 @@ void USeagullMainHub::TryBuyUpgrade(const FString& Key)
 
 	GI->SaveData.Coins -= Cost;
 	GI->SaveData.Upgrades.FindOrAdd(Key) = CurrentLevel + 1;
+	GI->PersistPracticeSave();
 
 	// Record breadcrumb for crash reporting
 	USeagullHorizonManager* HM = GI->GetHorizonManager();
@@ -438,6 +480,10 @@ void USeagullMainHub::TryBuyUpgrade(const FString& Key)
 	{
 		int32 NewLevel = CurrentLevel + 1;
 		HM->RecordBreadcrumb(TEXT("user_action"), FString::Printf(TEXT("bought_%s_%d"), *Key, NewLevel));
+		if (!GI->bPracticeMode) HM->SaveData(GI->SaveData.ToJsonString(), [](bool bSaved)
+		{
+			if (!bSaved) UE_LOG(LogSeagullStorm, Warning, TEXT("Upgrade purchase remains in memory; cloud save failed or player session changed."));
+		});
 	}
 
 	UE_LOG(LogSeagullStorm, Log, TEXT("Bought %s upgrade: level %d -> %d (cost %d)"), *Key, CurrentLevel, CurrentLevel + 1, Cost);
@@ -456,6 +502,7 @@ void USeagullMainHub::DisplayNews(const TArray<FHorizonNewsEntry>& Entries)
 {
 	if (!NewsBox) return;
 	NewsBox->ClearChildren();
+	if (Entries.IsEmpty()) SeagullWidgetStyles::AddRow(NewsBox, SeagullWidgetStyles::MakeText(WidgetTree, TEXT("No news available."), 16, SeagullColors::Sand));
 	for (const FHorizonNewsEntry& Entry : Entries)
 	{
 		UTextBlock* Row = NewObject<UTextBlock>(this);
@@ -466,4 +513,20 @@ void USeagullMainHub::DisplayNews(const TArray<FHorizonNewsEntry>& Entries)
 		NewsBox->AddChildToVerticalBox(Row);
 	}
 	UE_LOG(LogSeagullStorm, Log, TEXT("News displayed: %d entries"), Entries.Num());
+}
+
+void USeagullMainHub::OnSDKClicked()
+{
+    APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
+    if (PC) { USeagullSDKPanel* Panel = CreateWidget<USeagullSDKPanel>(PC); if (Panel) Panel->AddToViewport(100); }
+}
+
+void USeagullMainHub::NativeTick(const FGeometry& Geometry, float DeltaTime)
+{
+    Super::NativeTick(Geometry, DeltaTime);
+    if (ASeagullStormGameMode* GM = Cast<ASeagullStormGameMode>(UGameplayStatics::GetGameMode(GetWorld())))
+    {
+        if (PlayButton) PlayButton->SetIsEnabled(!GM->IsAwaitingRunTicket());
+        if (GM->IsAwaitingRunTicket() && SessionText) SessionText->SetText(FText::FromString(GM->GetRunStatus()));
+    }
 }

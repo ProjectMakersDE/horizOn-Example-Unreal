@@ -1,6 +1,8 @@
 #include "Enemies/SeagullEnemy_Boss.h"
 #include "Core/SeagullStormGameMode.h"
 #include "SeagullStorm.h"
+#include "Components/SphereComponent.h"
+#include "PaperFlipbookComponent.h"
 
 ASeagullEnemy_Boss::ASeagullEnemy_Boss()
 {
@@ -67,6 +69,8 @@ void ASeagullEnemy_Boss::OnDeath()
 {
 	UE_LOG(LogSeagullStorm, Log, TEXT("Boss defeated!"));
 
+	Super::OnDeath();
+
 	// Boss death ends the run successfully
 	ASeagullStormGameMode* GM = Cast<ASeagullStormGameMode>(GetWorld()->GetAuthGameMode());
 	if (GM)
@@ -74,5 +78,4 @@ void ASeagullEnemy_Boss::OnDeath()
 		GM->EndRun(false);
 	}
 
-	Super::OnDeath();
 }

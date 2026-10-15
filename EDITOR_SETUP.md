@@ -1,126 +1,112 @@
-# Unreal Editor Setup: Seagull Storm
+# Unreal 5.5 editor setup
 
-All game logic, UI, input and styling are pure C++ and need no editor work. What C++
-cannot create are **binary assets** (`.umap`, imported `.uasset` files). This document
-lists every editor step required to make the project fully playable, in order. The
-`.gitignore` no longer excludes `*.uasset`/`*.umap`, so commit the results of each step.
+The refresh host has no Unreal installation. Native compilation, the Python
+bootstrap and runtime visuals are **pending**. This project ships loose art/audio
+and C++ source; no `.umap` or imported `.uasset` is claimed as tested or complete.
 
-The game is fully null-guarded: it runs after step 1 alone (silent, with invisible
-actors), and each further step adds audio and visuals.
+## Bootstrap
 
-**Before you start:** set your horizOn API key first (see [README.md](README.md) steps
-2-3). `Config/DefaultGame.ini` still ships `ApiKey=YOUR_API_KEY`; without a real key
-every auth call fails and the screen flow stalls at the Title screen, which shows a
-"Sign-in failed" status instead of advancing to the Hub.
+1. Open `SeagullStorm.uproject` in Unreal **5.5**. Compile the editor target with the
+   platform's normal C++ toolchain (Xcode on Mac, Visual Studio on Windows).
+2. Confirm Paper2D, Python Editor Script Plugin and Editor Scripting Utilities are
+   enabled. The `.uproject` enables the scripting plugins for editor targets only.
+3. Save unrelated unsaved editor work before running the setup script: creating a
+   new map closes the current level. Choose **Tools > Execute Python Script** and
+   select `Scripts/setup_editor_assets.py`.
+4. The script imports the nine shared PNGs into `/Game/Textures`, creates correctly
+   scaled sprites under `/Game/Sprites`, creates the canonical one-frame flipbooks
+   under `/Game/Flipbooks`, imports the fourteen audio files and creates the unlit
+   fallback arena-color material and `/Game/Maps/MainMap`. It also imports the
+   16 cutout parts and separate shadow from `Content/Textures/Cutout/` into
+   `/Game/Textures/Cutout/`, creating custom-pivot sprites in
+   `/Game/Sprites/Cutout/` from `rig.json`.
+5. Restart the editor. Asset lookups in C++ constructors cache missing files until
+   the next editor process. Open `/Game/Maps/MainMap`, press Play and select
+   **Play offline practice**. An API key is optional for this flow.
 
----
+The script reuses existing assets and maps. It will not silently replace manual
+editor changes. To regenerate an asset deliberately, remove that generated asset
+in the editor and rerun the script. All source PNG/OGG files remain intact.
 
-## 1. Create the map: `Content/Maps/MainMap.umap`
+The gull and crab use seven and nine independent cutout parts. The C++ rig
+rotates limbs and body poses for idle, movement, attack and hurt. Weapon firing
+triggers gull attacks, health loss triggers hurt, and crab contact attacks/hits
+trigger claw/hurt poses. Pause stops the actor-driven animation clock. Moving
+feet/legs keep their global gait phase during upper-body attacks. Parts and
+shadow are owned by the actor and removed during teardown. The original full
+flipbook is hidden and stopped once all rig sprites resolve. Missing imported
+parts retain the original fallback image.
 
-`Config/DefaultEngine.ini` already wires `GameDefaultMap=/Game/Maps/MainMap`,
-`GlobalDefaultGameMode=SeagullStormGameMode` and `GameInstanceClass=SeagullGameInstance`,
-so the map itself can stay completely empty: no Level Blueprint, no placed actors.
+Cutout sprites use full-canvas images, source-pixel custom pivots, bilinear
+filtering, clamp addressing, retained alpha, no mipmaps and masked unlit material.
+The shadow uses translucent unlit material and stays beneath the rig. Part Z
+offsets increase in manifest order. Paper2D local X/Z are explicitly mapped to
+arena X/Y. Source Y is negated and clockwise source angles become negative world
+yaw. Facing mirrors the complete parent including every pivot and translation.
+Canvas centers remain at actor centers. The gull/crab widths remain 44/38 units.
+The octopus remains 86 units and other foes 38–42 units.
 
-1. Open `SeagullStorm.uproject` with Unreal Engine 5.5 (let it compile the C++ module).
-2. **File > New Level... > Empty Level**.
-3. **File > Save Current Level As...**, create the folder `Maps` under `Content`, name the
-   level `MainMap`, save.
+## Canonical assets
 
-**Expected result:** Pressing **Play** boots into the Title screen (dark background,
-seagull logo, "SEAGULL STORM", name input, five auth buttons — Guest, Google, Apple,
-Email, Create Account; Google/Apple are desktop stubs, see the README known limitations). With a
-configured API key the whole screen flow (Title -> Hub -> Run -> Game Over) works;
-gameplay actors are still invisible and the game is silent until steps 2-4 are done.
+| Sprite | Source PNG | Flipbooks |
+|---|---|---|
+| `SP_Seagull` | `seagull_hero.png` | `FB_Seagull_Idle`, `Walk`, `Hurt`, `Death` |
+| `SP_Crab` | `enemy_crab.png` | `FB_Crab_Walk`, `Death` |
+| `SP_Jellyfish` | `enemy_jellyfish.png` | `FB_Jellyfish_Idle`, `Death` |
+| `SP_Pirate` | `enemy_pirate.png` | `FB_Pirate_Walk`, `Death` |
+| `SP_Boss` | `enemy_octopus.png` | `FB_Boss_Idle`, `Death` |
+| `SP_XPShell` | `pickup_shell.png` | `FB_XPShell` |
+| `SP_Coin` | `pickup_coin.png` | `FB_Coin` |
+| `SP_Health` | `pickup_heart.png` | `FB_Health` |
+| `SP_Feather` | legacy `weapons.png`, first 32×32 cell | `FB_Feather` |
+| `SP_Arena` | `arena_background.png` | Used directly by the map generator |
 
-## 2. Import the 14 audio files
+Cutout assets are named `/Game/Sprites/Cutout/SP_Cutout_gull_<part>` and
+`SP_Cutout_crab_<part>` for each manifest part, plus `SP_Cutout_shadow`.
+They do not need flipbooks. Preserve their custom pivots when importing manually.
+The packaging config always cooks `/Game/Sprites/Cutout` and its dependencies,
+since the C++ rig resolves these assets at BeginPlay.
 
-`SeagullAudioManager::Initialize()` loads these by path, so the asset names must equal the
-file stems (the default when importing).
+If the script reports a Python API/import error, keep the source files and use
+Unreal's ordinary texture import, **Create Sprite** and **Create Flipbook** actions
+at these exact paths. Confirm RGBA, bilinear filter, no mipmaps, centered pivots,
+no sprite collision and `/Paper2D/MaskedUnlitSpriteMaterial`. Sphere components
+provide gameplay collision. Do not call the bootstrap verified until its output
+has been opened and played in the engine.
 
-1. In the Content Browser create the folders `Audio/Music` and `Audio/SFX` under `Content`.
-2. Drag `Content/Audio/Music/music_menu.ogg`, `music_battle.ogg`, `music_boss.ogg`
-   (from the repo folder on disk) into `/Game/Audio/Music`.
-3. Drag the 11 SFX files (`sfx_feather.ogg`, `sfx_screech.ogg`, `sfx_dive.ogg`,
-   `sfx_gust.ogg`, `sfx_player_hit.ogg`, `sfx_enemy_hit.ogg`, `sfx_enemy_attack.ogg`,
-   `sfx_pickup_xp.ogg`, `sfx_levelup.ogg`, `sfx_upgrade_select.ogg`, `sfx_game_over.ogg`)
-   into `/Game/Audio/SFX`.
-4. Save all (**Ctrl+Shift+S**).
+The script follows Epic's published APIs:
+[PaperSprite](https://dev.epicgames.com/documentation/en-us/unreal-engine/python-api/class/PaperSprite?application_version=5.5),
+[Texture2D](https://dev.epicgames.com/documentation/en-us/unreal-engine/python-api/class/Texture2D?application_version=5.5),
+[PaperSpriteFactory](https://dev.epicgames.com/documentation/en-us/unreal-engine/python-api/class/PaperSpriteFactory?application_version=5.5),
+[PaperFlipbookKeyFrame](https://dev.epicgames.com/documentation/en-us/unreal-engine/python-api/class/PaperFlipbookKeyFrame?application_version=5.5),
+[LevelEditorSubsystem](https://dev.epicgames.com/documentation/en-us/unreal-engine/python-api/class/LevelEditorSubsystem?application_version=5.5).
+The exact engine execution still needs verification.
 
-**Expected result:** The output log shows
-`AudioManager initialized — loaded 14/14 audio assets` on the next Play. Menu music
-plays on the title screen, battle/boss music during runs, SFX on every trigger.
+## Native acceptance checks
 
-## 3. Import the sprite sheets with pixel-art settings
-
-1. Create the folder `Textures` under `Content` in the Content Browser and drag in
-   `seagull.png`, `enemies.png`, `weapons.png`, `pickups.png` from
-   `Content/Textures/` on disk. (`tilemap.png` and `ui.png` are currently not consumed
-   by the Unreal code; the arena uses colored planes and the UI uses flat color
-   styling, importing them is optional.)
-2. Select all imported textures, right-click > **Sprite Actions > Apply Paper2D Texture
-   Settings**. Then verify in each texture:
-   - Compression Settings: `UserInterface2D (RGBA)`
-   - Mip Gen Settings: `NoMipmaps`
-   - Filter: `Nearest`
-   - sRGB: enabled
-3. Save all.
-
-**Expected result:** Textures render crisp (no smoothing) when zoomed in the viewer.
-
-## 4. Extract sprites and create the Flipbooks
-
-The C++ constructors load flipbooks by these **exact** names from `/Game/Flipbooks`.
-Create the folder `Flipbooks` under `Content` first. Sprite asset names do not matter;
-only the flipbook names do.
-
-Extraction (right-click a texture > **Sprite Actions > Extract Sprites**, mode `Grid`):
-
-- `seagull.png` (192x128): cell 32x32 -> 4 rows: row 0 = Idle (4 frames), row 1 = Walk
-  (6), row 2 = Hurt (2), row 3 = Death (4). Empty cells produce no sprites.
-- `enemies.png` (256x320): two passes. Pass 1: cell 32x32, grid height 192 (rows 0-5).
-  Pass 2: cell 64x64, Y offset 192 (boss rows). Rows: 0 Crab Walk (4), 1 Crab Death (3),
-  2 Jellyfish Idle (4), 3 Jellyfish Death (3), 4 Pirate Walk (4), 5 Pirate Death (3),
-  then Boss Idle (4) and Boss Death (4) at 64x64.
-- `weapons.png` (128x128): cell 32x32 -> row 0 Feather (4), row 1 Screech (4),
-  row 2 Dive (4), row 3 Gust (4).
-- `pickups.png` (64x48): cell 16x16 -> row 0 XP Shell (4), row 1 Coin (4),
-  row 2 Health (2).
-
-Then select the frames of one animation (in sheet order, left to right), right-click >
-**Create Flipbook**, move it to `/Game/Flipbooks`, rename exactly, and set
-`Frames Per Second` (loop behavior is controlled at runtime by the code):
-
-| Flipbook name | Source | Row | Frames | FPS |
-|---|---|---|---|---|
-| `FB_Seagull_Idle` | seagull.png | 0 | 4 | 8 |
-| `FB_Seagull_Walk` | seagull.png | 1 | 6 | 10 |
-| `FB_Seagull_Hurt` | seagull.png | 2 | 2 | 10 |
-| `FB_Seagull_Death` | seagull.png | 3 | 4 | 8 |
-| `FB_Crab_Walk` | enemies.png | 0 | 4 | 8 |
-| `FB_Crab_Death` | enemies.png | 1 | 3 | 8 |
-| `FB_Jellyfish_Idle` | enemies.png | 2 | 4 | 8 |
-| `FB_Jellyfish_Death` | enemies.png | 3 | 3 | 8 |
-| `FB_Pirate_Walk` | enemies.png | 4 | 4 | 10 |
-| `FB_Pirate_Death` | enemies.png | 5 | 3 | 8 |
-| `FB_Boss_Idle` | enemies.png | 6 (64x64) | 4 | 6 |
-| `FB_Boss_Death` | enemies.png | 7 (64x64) | 4 | 6 |
-| `FB_Feather` | weapons.png | 0 | 4 | 12 |
-| `FB_XPShell` | pickups.png | 0 | 4 | 8 |
-| `FB_Coin` | pickups.png | 1 | 4 | 8 |
-
-Optional (not used by the code yet): `FB_Screech`
-(weapons row 1), `FB_Dive` (row 2), `FB_Gust` (row 3), `FB_Health` (pickups row 2).
-
-**Expected result:** On the next Play the seagull is visible and switches Idle/Walk
-while moving, flashes Hurt on damage and plays Death on dying; crabs/jellyfish/pirates/
-boss are visible, walk-animated and play their death animation before despawning;
-feather projectiles and XP shells are visible.
-
-## 5. Commit the assets
-
-```
-git add Content/Maps Content/Audio Content/Textures Content/Flipbooks
-git commit -m "feat(assets): editor-created map, audio imports, sprites and flipbooks"
-```
-
-**Expected result:** `git status` is clean; a fresh clone opens fully playable.
+- Compile `SeagullStormEditor`; inspect import output and asset sizing/orientation.
+- Verify gull wings/feet/head and crab legs/claws animate without frozen duplicate
+  limbs, move/idle settle correctly, attack/hurt events trigger, facing survives
+  vertical movement, and every part/shadow disappears after restart or teardown.
+  Check front/rear layer order, alpha edges, pause/resume and unchanged collision.
+- Play practice from a fresh clone/config placeholder, move with WASD/arrows, pause
+  and resume, collect XP, choose queued cards, heal, die and retry.
+- Play through the survival timer and octopus fight; verify poison circles are
+  visible and disappear when the run is cleaned up.
+- Restart and confirm practice upgrades/highscore persist locally.
+- Configure a dedicated QA app and player; verify ticket-before-clock, accepted
+  submit, rank/board/around/state/profile reads and rejected/unavailable outcomes.
+- Verify cloud progress cannot be overwritten after a failed load. The official
+  SDK conflates absent save and network failure; new signups initialize safely,
+  existing users require a successful load.
+- Delay authentication, switch to practice, then retry another login; repeat with
+  sign-out. Delay initial cloud/config reads and attempt a purchase/gift. Verify
+  owner changes discard old responses and purchase/gift/manual/run save snapshots
+  arrive in order. Test a cosmetic-only gift and a valid coin gift separately.
+- Verify dark HUD backing, readable font, status wrapping and pause hit testing
+  at 1280×720 and a smaller viewport. Source-only layout changes are not a native
+  visual verification.
+- Run optional gift, feedback and email actions only when deliberately selected;
+  no email or production write was performed during this refresh.
+- Package and run a standalone build, then commit generated `.uasset`/`.umap`
+  files if the native checks succeed. Font/PNG loose-file staging is configured.

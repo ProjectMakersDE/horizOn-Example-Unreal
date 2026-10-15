@@ -1,5 +1,10 @@
 #include "Horizon/SeagullHorizonManager.h"
 #include "SeagullStorm.h"
+#include "Core/SeagullGameInstance.h"
+#include "Data/SeagullConfigCache.h"
+#include "Managers/HorizonLocalizationManager.h"
+#include "Managers/HorizonPlayerProfileManager.h"
+#include "Managers/HorizonEmailSendingManager.h"
 
 // HorizonSubsystem.h only forward declares its managers: include every manager this facade calls.
 #include "Managers/HorizonAuthManager.h"
@@ -36,52 +41,103 @@ bool USeagullHorizonManager::IsConnected() const
 
 // --- Auth ---
 
+bool USeagullHorizonManager::BeginAuthRequest(uint64& Generation, const TFunction<void(bool)>& Callback)
+{
+	// The SDK mutates its shared current user before invoking the callback.
+	// A persistent gate prevents old requests from replacing a newer identity.
+	USeagullGameInstance* GI = GetTypedOuter<USeagullGameInstance>();
+	if (!GI || !Subsystem || !Subsystem->Auth || bAuthRequestInFlight)
+	{
+		if (Callback) Callback(false);
+		return false;
+	}
+	Generation = GI->SessionGeneration;
+	bAuthRequestInFlight = true;
+	return true;
+}
+
+void USeagullHorizonManager::CompleteAuthRequest(uint64 Generation, bool bSuccess, const TFunction<void(bool)>& Callback)
+{
+	// Sign-out may happen while the SDK still owns an HTTP authentication request.
+	// Clear its late result before opening the gate for another authentication.
+	if (bSignOutAfterAuth)
+	{
+		bSignOutAfterAuth = false;
+		if (Subsystem && Subsystem->Auth) Subsystem->Auth->SignOut();
+	}
+	bAuthRequestInFlight = false;
+	USeagullGameInstance* GI = GetTypedOuter<USeagullGameInstance>();
+	if (Callback) Callback(bSuccess && GI && GI->SessionGeneration == Generation);
+}
+
 void USeagullHorizonManager::SignUpAnonymous(const FString& Name, TFunction<void(bool)> Callback)
 {
-	if (!Subsystem || !Subsystem->Auth) { if (Callback) Callback(false); return; }
+	uint64 Generation;
+	if (!BeginAuthRequest(Generation, Callback)) return;
+	TWeakObjectPtr<USeagullHorizonManager> Weak(this);
 
 	Subsystem->Auth->SignUpAnonymous(Name, FOnAuthComplete::CreateLambda(
-		[Callback](bool bSuccess)
+		[Weak, Generation, Callback](bool bSuccess)
 		{
-			if (Callback) Callback(bSuccess);
+			if (USeagullHorizonManager* Self = Weak.Get()) Self->CompleteAuthRequest(Generation, bSuccess, Callback);
 		}));
 }
 
 void USeagullHorizonManager::SignInEmail(const FString& Email, const FString& Password, TFunction<void(bool)> Callback)
 {
-	if (!Subsystem || !Subsystem->Auth) { if (Callback) Callback(false); return; }
+	uint64 Generation;
+	if (!BeginAuthRequest(Generation, Callback)) return;
+	TWeakObjectPtr<USeagullHorizonManager> Weak(this);
 
 	Subsystem->Auth->SignInEmail(Email, Password, FOnAuthComplete::CreateLambda(
-		[Callback](bool bSuccess)
+		[Weak, Generation, Callback](bool bSuccess)
 		{
-			if (Callback) Callback(bSuccess);
+			if (USeagullHorizonManager* Self = Weak.Get()) Self->CompleteAuthRequest(Generation, bSuccess, Callback);
 		}));
 }
 
 void USeagullHorizonManager::SignUpEmail(const FString& Email, const FString& Password, const FString& Name, TFunction<void(bool)> Callback)
 {
-	if (!Subsystem || !Subsystem->Auth) { if (Callback) Callback(false); return; }
+	uint64 Generation;
+	if (!BeginAuthRequest(Generation, Callback)) return;
+	TWeakObjectPtr<USeagullHorizonManager> Weak(this);
 
 	Subsystem->Auth->SignUpEmail(Email, Password, Name, FOnAuthComplete::CreateLambda(
-		[Callback](bool bSuccess)
+		[Weak, Generation, Callback](bool bSuccess)
 		{
-			if (Callback) Callback(bSuccess);
+			if (USeagullHorizonManager* Self = Weak.Get()) Self->CompleteAuthRequest(Generation, bSuccess, Callback);
 		}));
 }
 
 void USeagullHorizonManager::RestoreSession(TFunction<void(bool)> Callback)
 {
-	if (!Subsystem || !Subsystem->Auth) { if (Callback) Callback(false); return; }
+	uint64 Generation;
+	if (!BeginAuthRequest(Generation, Callback)) return;
+	TWeakObjectPtr<USeagullHorizonManager> Weak(this);
 
 	Subsystem->Auth->RestoreSession(FOnAuthComplete::CreateLambda(
-		[Callback](bool bSuccess)
+		[Weak, Generation, Callback](bool bSuccess)
 		{
-			if (Callback) Callback(bSuccess);
+			if (USeagullHorizonManager* Self = Weak.Get()) Self->CompleteAuthRequest(Generation, bSuccess, Callback);
 		}));
+}
+
+void USeagullHorizonManager::SignInWithApple(TFunction<void(bool)> Callback)
+{
+	uint64 Generation;
+	if (!BeginAuthRequest(Generation, Callback)) return;
+	TWeakObjectPtr<USeagullHorizonManager> Weak(this);
+	Subsystem->Auth->SignInWithApple(FOnAuthComplete::CreateLambda([Weak, Generation, Callback](bool bSuccess)
+	{
+		if (USeagullHorizonManager* Self = Weak.Get()) Self->CompleteAuthRequest(Generation, bSuccess, Callback);
+	}));
 }
 
 void USeagullHorizonManager::SignOut()
 {
+	if (USeagullGameInstance* GI = GetTypedOuter<USeagullGameInstance>()) ++GI->SessionGeneration;
+	DiscardValidatedRun();
+	if (bAuthRequestInFlight) bSignOutAfterAuth = true;
 	if (Subsystem && Subsystem->Auth)
 	{
 		Subsystem->Auth->SignOut();
@@ -113,14 +169,27 @@ FString USeagullHorizonManager::GetUserId() const
 
 // --- Remote Config ---
 
+bool USeagullHorizonManager::IsCurrentSession(uint64 Generation, const FString& Owner) const
+{
+	USeagullGameInstance* GI = GetTypedOuter<USeagullGameInstance>();
+	return GI && !GI->bPracticeMode && GI->SessionGeneration == Generation && GI->SaveOwnerId == Owner
+		&& !Owner.IsEmpty() && IsSignedIn() && GetUserId() == Owner;
+}
+
 void USeagullHorizonManager::LoadAllConfigs(TFunction<void(bool, const TMap<FString, FString>&)> Callback)
 {
 	if (!Subsystem || !Subsystem->RemoteConfig) { if (Callback) Callback(false, {}); return; }
+	USeagullGameInstance* GI = GetTypedOuter<USeagullGameInstance>();
+	if (!GI || GI->bPracticeMode) { if (Callback) Callback(false, {}); return; }
+	const uint64 Generation = GI->SessionGeneration;
+	const FString Owner = GI->SaveOwnerId;
+	TWeakObjectPtr<USeagullHorizonManager> Weak(this);
 
 	Subsystem->RemoteConfig->GetAllConfigs(false, FOnAllConfigsComplete::CreateLambda(
-		[Callback](bool bSuccess, const TMap<FString, FString>& Configs)
+		[Weak, Generation, Owner, Callback](bool bSuccess, const TMap<FString, FString>& Configs)
 		{
-			if (Callback) Callback(bSuccess, Configs);
+			if (USeagullHorizonManager* Self = Weak.Get())
+				if (Callback) Callback(bSuccess && Self->IsCurrentSession(Generation, Owner), Self->IsCurrentSession(Generation, Owner) ? Configs : TMap<FString, FString>());
 		}));
 }
 
@@ -129,22 +198,59 @@ void USeagullHorizonManager::LoadAllConfigs(TFunction<void(bool, const TMap<FStr
 void USeagullHorizonManager::SaveData(const FString& JsonData, TFunction<void(bool)> Callback)
 {
 	if (!Subsystem || !Subsystem->CloudSave) { if (Callback) Callback(false); return; }
+	USeagullGameInstance* GI = GetTypedOuter<USeagullGameInstance>();
+	if (!GI || GI->bPracticeMode || !GI->CanMutateProgress()) { if (Callback) Callback(false); return; }
+	FPendingCloudSave Request;
+	Request.Json = JsonData;
+	Request.Owner = GI->SaveOwnerId;
+	Request.Generation = GI->SessionGeneration;
+	Request.Callback = MoveTemp(Callback);
+	PendingCloudSaves.Add(MoveTemp(Request));
+	DrainCloudSaves();
+}
 
-	Subsystem->CloudSave->Save(JsonData, FOnRequestComplete::CreateLambda(
-		[Callback](bool bSuccess, const FString& /*Error*/)
+void USeagullHorizonManager::DrainCloudSaves()
+{
+	if (bCloudSaveInFlight || PendingCloudSaves.IsEmpty()) return;
+	FPendingCloudSave Request = MoveTemp(PendingCloudSaves[0]);
+	PendingCloudSaves.RemoveAt(0);
+	bCloudSaveInFlight = true;
+	USeagullGameInstance* GI = GetTypedOuter<USeagullGameInstance>();
+	if (!IsCurrentSession(Request.Generation, Request.Owner) || !GI || !GI->bCloudSaveReady || !Subsystem || !Subsystem->CloudSave)
+	{
+		if (Request.Callback) Request.Callback(false);
+		bCloudSaveInFlight = false;
+		DrainCloudSaves();
+		return;
+	}
+	TWeakObjectPtr<USeagullHorizonManager> Weak(this);
+	const FString Json = Request.Json; // Copy before moving Request into the callback.
+	Subsystem->CloudSave->Save(Json, FOnRequestComplete::CreateLambda(
+		[Weak, Request = MoveTemp(Request)](bool bSuccess, const FString& /*Error*/)
 		{
-			if (Callback) Callback(bSuccess);
+			USeagullHorizonManager* Self = Weak.Get();
+			if (!Self) return;
+			const bool bCurrent = Self->IsCurrentSession(Request.Generation, Request.Owner);
+			if (Request.Callback) Request.Callback(bSuccess && bCurrent);
+			Self->bCloudSaveInFlight = false;
+			Self->DrainCloudSaves();
 		}));
 }
 
 void USeagullHorizonManager::LoadData(TFunction<void(bool, const FString&)> Callback)
 {
 	if (!Subsystem || !Subsystem->CloudSave) { if (Callback) Callback(false, TEXT("")); return; }
+	USeagullGameInstance* GI = GetTypedOuter<USeagullGameInstance>();
+	if (!GI || GI->bPracticeMode) { if (Callback) Callback(false, TEXT("")); return; }
+	const uint64 Generation = GI->SessionGeneration;
+	const FString Owner = GI->SaveOwnerId;
+	TWeakObjectPtr<USeagullHorizonManager> Weak(this);
 
 	Subsystem->CloudSave->Load(FOnStringComplete::CreateLambda(
-		[Callback](bool bSuccess, const FString& Data)
+		[Weak, Generation, Owner, Callback](bool bSuccess, const FString& Data)
 		{
-			if (Callback) Callback(bSuccess, Data);
+			if (USeagullHorizonManager* Self = Weak.Get())
+				if (Callback) Callback(bSuccess && Self->IsCurrentSession(Generation, Owner), Self->IsCurrentSession(Generation, Owner) ? Data : FString());
 		}));
 }
 
@@ -158,7 +264,7 @@ void USeagullHorizonManager::SubmitScore(int64 Score, TFunction<void(bool)> Call
 		[Callback](bool bSuccess, const FString& /*Error*/)
 		{
 			if (Callback) Callback(bSuccess);
-		}));
+		}), FString(), GetLeaderboardKey());
 }
 
 void USeagullHorizonManager::GetTop(int32 Limit, TFunction<void(bool, const TArray<FHorizonLeaderboardEntry>&)> Callback)
@@ -169,7 +275,7 @@ void USeagullHorizonManager::GetTop(int32 Limit, TFunction<void(bool, const TArr
 		[Callback](bool bSuccess, const TArray<FHorizonLeaderboardEntry>& Entries)
 		{
 			if (Callback) Callback(bSuccess, Entries);
-		}));
+		}), GetLeaderboardKey());
 }
 
 void USeagullHorizonManager::GetRank(TFunction<void(bool, const FHorizonLeaderboardEntry&)> Callback)
@@ -180,7 +286,7 @@ void USeagullHorizonManager::GetRank(TFunction<void(bool, const FHorizonLeaderbo
 		[Callback](bool bSuccess, const FHorizonLeaderboardEntry& Entry)
 		{
 			if (Callback) Callback(bSuccess, Entry);
-		}));
+		}), GetLeaderboardKey());
 }
 
 // --- News ---
@@ -237,6 +343,7 @@ void USeagullHorizonManager::SubmitFeedback(const FString& Title, const FString&
 
 void USeagullHorizonManager::LogInfo(const FString& Message)
 {
+	if (const USeagullGameInstance* GI = GetTypedOuter<USeagullGameInstance>()) { if (GI->bPracticeMode) return; }
 	if (!Subsystem || !Subsystem->UserLogs) return;
 
 	Subsystem->UserLogs->Info(Message, FOnUserLogComplete::CreateLambda(
@@ -248,6 +355,7 @@ void USeagullHorizonManager::LogInfo(const FString& Message)
 
 void USeagullHorizonManager::LogWarn(const FString& Message)
 {
+	if (const USeagullGameInstance* GI = GetTypedOuter<USeagullGameInstance>()) { if (GI->bPracticeMode) return; }
 	if (!Subsystem || !Subsystem->UserLogs) return;
 
 	Subsystem->UserLogs->Warn(Message, FOnUserLogComplete::CreateLambda(
@@ -285,6 +393,7 @@ void USeagullHorizonManager::SetCrashCustomKey(const FString& Key, const FString
 
 void USeagullHorizonManager::RecordException(const FString& Error, const FString& StackTrace)
 {
+	if (const USeagullGameInstance* GI = GetTypedOuter<USeagullGameInstance>()) { if (GI->bPracticeMode) return; }
 	if (Subsystem && Subsystem->Crashes)
 	{
 		Subsystem->Crashes->RecordException(Error, StackTrace);
@@ -306,8 +415,19 @@ void USeagullHorizonManager::StartValidatedRun(const FString& LeaderboardKey, TF
 {
 #if HORIZON_WITH_VALIDATED_ACTIONS
 	if (!Subsystem || !Subsystem->ValidatedActions) { if (Callback) Callback(false, 0, TEXT("NOT_SUPPORTED")); return; }
+	USeagullGameInstance* GI = GetTypedOuter<USeagullGameInstance>();
+	if (!GI || !IsCurrentSession(GI->SessionGeneration, GI->SaveOwnerId)) { if (Callback) Callback(false, 0, TEXT("SESSION_REQUIRED")); return; }
+	if (bTicketRequestInFlight) { if (Callback) Callback(false, 0, TEXT("RUN_REQUEST_IN_PROGRESS")); return; }
+	const uint64 Generation = GI->SessionGeneration;
+	const FString Owner = GI->SaveOwnerId;
+	bTicketRequestInFlight = true;
+	TWeakObjectPtr<USeagullHorizonManager> Weak(this);
 
 	UHorizonValidatedActionsManager* Validated = Subsystem->ValidatedActions;
+	EvidenceStatus = TEXT("No evidence requested");
+	EvidenceRunId.Empty();
+	EvidenceGeneration = Generation;
+	bEvidenceResolved = false;
 
 	// Upload the input log right away when the server asks for evidence (top N, flagged runs).
 	Validated->bAutoUploadEvidence = true;
@@ -315,8 +435,18 @@ void USeagullHorizonManager::StartValidatedRun(const FString& LeaderboardKey, TF
 	Validated->OnEvidenceUploadFailed.AddUniqueDynamic(this, &USeagullHorizonManager::HandleEvidenceUploadFailed);
 
 	Validated->StartRun(LeaderboardKey, FOnValidatedRunStarted::CreateLambda(
-		[Callback](bool bSuccess, const FHorizonValidatedRun& Run, const FString& ErrorCode, const FString& /*ErrorMessage*/)
+		[Weak, Generation, Owner, Callback](bool bSuccess, const FHorizonValidatedRun& Run, const FString& ErrorCode, const FString& /*ErrorMessage*/)
 		{
+			USeagullHorizonManager* Self = Weak.Get();
+			if (!Self) return;
+			Self->bTicketRequestInFlight = false;
+			if (!Self->IsCurrentSession(Generation, Owner))
+			{
+				Self->DiscardValidatedRun();
+				if (Callback) Callback(false, 0, TEXT("SESSION_CHANGED"));
+				return;
+			}
+			if (bSuccess) Self->EvidenceRunId = Run.RunId;
 			if (Callback) Callback(bSuccess, Run.Seed, ErrorCode);
 		}));
 #else
@@ -335,6 +465,9 @@ bool USeagullHorizonManager::HasValidatedRun() const
 
 void USeagullHorizonManager::DiscardValidatedRun()
 {
+	EvidenceRunId.Empty();
+	bEvidenceResolved = false;
+	EvidenceStatus = TEXT("No evidence requested");
 #if HORIZON_WITH_VALIDATED_ACTIONS
 	if (Subsystem && Subsystem->ValidatedActions)
 	{
@@ -348,6 +481,12 @@ void USeagullHorizonManager::SubmitValidatedScore(int64 Score, const TArray<uint
 {
 #if HORIZON_WITH_VALIDATED_ACTIONS
 	if (!Subsystem || !Subsystem->ValidatedActions) { if (Callback) Callback(false, 0, TEXT("NOT_SUPPORTED")); return; }
+	USeagullGameInstance* GI = GetTypedOuter<USeagullGameInstance>();
+	if (!GI || !IsCurrentSession(GI->SessionGeneration, GI->SaveOwnerId)) { if (Callback) Callback(false, 0, TEXT("SESSION_REQUIRED")); return; }
+	const uint64 Generation = GI->SessionGeneration;
+	const FString Owner = GI->SaveOwnerId;
+	const FString RunId = EvidenceRunId;
+	TWeakObjectPtr<USeagullHorizonManager> Weak(this);
 
 	TArray<FHorizonEarnedValue> Earned;
 	if (!CoinsKey.IsEmpty() && Coins > 0)
@@ -358,9 +497,14 @@ void USeagullHorizonManager::SubmitValidatedScore(int64 Score, const TArray<uint
 	// Empty LeaderboardKey: the board the ticket was bound to at StartValidatedRun.
 	Subsystem->ValidatedActions->SubmitValidated(Score, InputLog, Stage, FString(), Earned,
 		FOnValidatedSubmitComplete::CreateLambda(
-			[Callback](bool bSuccess, const FHorizonValidatedSubmitResult& Result, const FString& ErrorCode, const FString& /*ErrorMessage*/)
+			[Weak, Generation, Owner, RunId, Callback](bool bSuccess, const FHorizonValidatedSubmitResult& Result, const FString& ErrorCode, const FString& /*ErrorMessage*/)
 			{
-				if (Callback) Callback(bSuccess, Result.Rank, ErrorCode);
+				USeagullHorizonManager* Self = Weak.Get();
+				if (!Self) return;
+				if (!Self->IsCurrentSession(Generation, Owner)) { if (Callback) Callback(false, 0, TEXT("SESSION_CHANGED")); return; }
+				if (Self->EvidenceRunId == RunId && !Self->bEvidenceResolved)
+					Self->EvidenceStatus = bSuccess && Result.bAccepted && Result.Evidence.bRequired ? TEXT("Evidence upload pending") : TEXT("No evidence requested");
+				if (Callback) Callback(bSuccess && Result.bAccepted, Result.Rank, bSuccess && !Result.bAccepted ? FString(TEXT("SERVER_RESULT_NOT_ACCEPTED")) : ErrorCode);
 			}));
 #else
 	if (Callback) Callback(false, 0, TEXT("NOT_SUPPORTED"));
@@ -401,10 +545,86 @@ FString USeagullHorizonManager::DescribeScoreError(const FString& ErrorCode)
 
 void USeagullHorizonManager::HandleEvidenceUploaded(const FString& RunId, int32 Bytes)
 {
+	USeagullGameInstance* GI = GetTypedOuter<USeagullGameInstance>();
+	if (!GI || RunId.IsEmpty() || RunId != EvidenceRunId || !IsCurrentSession(EvidenceGeneration, GI->SaveOwnerId)) return;
+	bEvidenceResolved = true;
+	EvidenceStatus = FString::Printf(TEXT("Evidence uploaded / %d bytes"), Bytes);
 	UE_LOG(LogSeagullStorm, Log, TEXT("Validated run %s: input log uploaded as evidence (%d bytes)"), *RunId, Bytes);
 }
 
 void USeagullHorizonManager::HandleEvidenceUploadFailed(const FString& RunId, const FString& ErrorCode, const FString& ErrorMessage)
 {
+	USeagullGameInstance* GI = GetTypedOuter<USeagullGameInstance>();
+	if (!GI || RunId.IsEmpty() || RunId != EvidenceRunId || !IsCurrentSession(EvidenceGeneration, GI->SaveOwnerId)) return;
+	bEvidenceResolved = true;
+	EvidenceStatus = FString::Printf(TEXT("Score accepted / evidence upload failed: %s"), *ErrorCode);
 	UE_LOG(LogSeagullStorm, Warning, TEXT("Validated run %s: evidence upload failed (%s): %s"), *RunId, *ErrorCode, *ErrorMessage);
+}
+
+FString USeagullHorizonManager::GetLeaderboardKey() const
+{
+    USeagullGameInstance* GI = GetTypedOuter<USeagullGameInstance>();
+    return GI ? GI->GetConfigCache()->ValidatedRunsBoard : FString(TEXT("default"));
+}
+
+void USeagullHorizonManager::ListBoards(TFunction<void(bool, const TArray<FHorizonLeaderboardBoard>&)> Callback)
+{
+    if (!Subsystem || !Subsystem->Leaderboard) { if (Callback) Callback(false, {}); return; }
+    Subsystem->Leaderboard->ListBoards(FOnLeaderboardBoardsComplete::CreateLambda(
+        [Callback](bool bSuccess, const TArray<FHorizonLeaderboardBoard>& Boards) { if (Callback) Callback(bSuccess, Boards); }));
+}
+
+void USeagullHorizonManager::GetAround(int32 Range, TFunction<void(bool, const TArray<FHorizonLeaderboardEntry>&)> Callback)
+{
+    if (!Subsystem || !Subsystem->Leaderboard) { if (Callback) Callback(false, {}); return; }
+    Subsystem->Leaderboard->GetAround(Range, false, FOnLeaderboardEntriesComplete::CreateLambda(
+        [Callback](bool bSuccess, const TArray<FHorizonLeaderboardEntry>& Entries) { if (Callback) Callback(bSuccess, Entries); }), GetLeaderboardKey());
+}
+
+void USeagullHorizonManager::GetValidatedState(TFunction<void(bool, const FHorizonPlayerState&, const FString&)> Callback)
+{
+    if (!Subsystem || !Subsystem->ValidatedActions) { if (Callback) Callback(false, {}, TEXT("NOT_SUPPORTED")); return; }
+    Subsystem->ValidatedActions->GetState(FOnPlayerStateLoaded::CreateLambda(
+        [Callback](bool bSuccess, const FHorizonPlayerState& State, const FString& Code, const FString&) { if (Callback) Callback(bSuccess, State, Code); }));
+}
+
+void USeagullHorizonManager::LoadLocalization(const FString& Lang, TFunction<void(bool, const TMap<FString, FString>&)> Callback)
+{
+    if (!Subsystem || !Subsystem->Localization) { if (Callback) Callback(false, {}); return; }
+    Subsystem->Localization->SetLanguage(Lang);
+    Subsystem->Localization->GetAllLocalizations(Lang, FOnAllLocalizationsComplete::CreateLambda(
+        [Callback](bool bSuccess, const TMap<FString, FString>& Values) { if (Callback) Callback(bSuccess, Values); }));
+}
+
+void USeagullHorizonManager::GetPlayerProfile(TFunction<void(bool, const FHorizonPlayerProfileResult&, const FString&)> Callback)
+{
+    if (!Subsystem || !Subsystem->PlayerProfile) { if (Callback) Callback(false, {}, TEXT("NOT_SUPPORTED")); return; }
+    Subsystem->PlayerProfile->GetProfile(FOnPlayerProfileComplete::CreateLambda(
+        [Callback](bool Ok, const FHorizonPlayerProfileResult& Result, const FString& Code, const FString&) { if (Callback) Callback(Ok, Result, Code); }));
+}
+
+void USeagullHorizonManager::SetPlayerAvatar(const FString& AvatarId, TFunction<void(bool, const FHorizonPlayerProfileResult&, const FString&)> Callback)
+{
+    if (!Subsystem || !Subsystem->PlayerProfile || !Subsystem->PlayerProfile->HasCurrentProfile())
+    { if (Callback) Callback(false, {}, TEXT("LOAD_PROFILE_FIRST")); return; }
+    const FHorizonPlayerProfileResult& Current = Subsystem->PlayerProfile->GetCurrentProfile();
+    if (!Current.IsAvailable(AvatarId)) { if (Callback) Callback(false, Current, TEXT("COSMETIC_NOT_AVAILABLE")); return; }
+    // Preserve the other slots: SetProfile replaces the whole profile.
+    Subsystem->PlayerProfile->SetProfile(AvatarId, Current.Profile.FrameId, Current.Profile.Badges,
+        FOnPlayerProfileComplete::CreateLambda(
+            [Callback](bool Ok, const FHorizonPlayerProfileResult& Result, const FString& Code, const FString&) { if (Callback) Callback(Ok, Result, Code); }));
+}
+
+void USeagullHorizonManager::SendOwnAccountEmail(const FString& TemplateSlug, TFunction<void(bool, const FString&)> Callback)
+{
+    if (!Subsystem || !Subsystem->EmailSending || !IsSignedIn()) { if (Callback) Callback(false, TEXT("Sign in with an email account first.")); return; }
+    if (!Subsystem->Auth || Subsystem->Auth->GetCurrentUser().Email.IsEmpty())
+    { if (Callback) Callback(false, TEXT("This player has no email address. Use an email account for the email demo.")); return; }
+    // Called only by the explicit panel button, never automatically after a run.
+    Subsystem->EmailSending->SendEmail(GetUserId(), TemplateSlug, {}, TEXT("en"), FOnSendEmailComplete::CreateLambda(
+        [Callback](bool Ok, const FSendEmailResponse& Response)
+        {
+            if (Callback) Callback(Ok, Ok ? FString::Printf(TEXT("Email request accepted / %s / id %s"), *Response.Status, *Response.Id)
+                : FString(TEXT("Email request failed / check template and the account email.")));
+        }));
 }

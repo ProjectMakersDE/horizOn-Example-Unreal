@@ -17,6 +17,7 @@ public:
 	virtual void NativeConstruct() override;
 
 	void SetRank(int32 Rank);
+	void LoadGameOverData();
 
 	// Result line of the score submit, for example "Validated run" or why the server refused it.
 	void SetScoreStatus(const FString& Message, bool bIsError);
@@ -56,5 +57,4 @@ private:
 	UFUNCTION()
 	void OnHubClicked();
 
-	void LoadGameOverData();
 };

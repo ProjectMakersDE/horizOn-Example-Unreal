@@ -17,15 +17,12 @@ public class SeagullStorm : ModuleRules
             "UMG",
             "Slate",
             "SlateCore",
-            "HorizonSDK"
+            "HorizonSDK",
+            "Json",
+            "JsonUtilities"
         });
 
-        // horizOn Validated Actions (server-checked runs for the leaderboard). Needs a horizOn SDK
-        // with UHorizonValidatedActionsManager (the first SDK release after 1.6.0 that ships
-        // TASK-883). The vendored plugin in Plugins/HorizonSDK does not have it yet, so the switch
-        // stays off and the game uses the normal SubmitScore path. Set it to true once the plugin
-        // is updated. See README.md, section "Validated Actions".
-        const bool bWithValidatedActions = false;
-        PublicDefinitions.Add("HORIZON_WITH_VALIDATED_ACTIONS=" + (bWithValidatedActions ? "1" : "0"));
+        // Official 1.7.0 embeds tickets, server-owned state and evidence upload.
+        PublicDefinitions.Add("HORIZON_WITH_VALIDATED_ACTIONS=1");
     }
 }

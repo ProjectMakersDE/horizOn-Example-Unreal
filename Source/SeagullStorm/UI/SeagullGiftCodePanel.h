@@ -31,6 +31,9 @@ protected:
 	UTextBlock* StatusText = nullptr;
 
 private:
+	bool bRedeeming = false;
+	void CompleteRequest(const FString& Message);
+
 	UFUNCTION()
 	void OnRedeemClicked();
 

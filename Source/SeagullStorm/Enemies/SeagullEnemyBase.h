@@ -8,6 +8,7 @@
 class UPaperFlipbook;
 class UPaperFlipbookComponent;
 class USphereComponent;
+class USeagullCutoutRigComponent;
 
 UCLASS()
 class ASeagullEnemyBase : public AActor
@@ -29,6 +30,9 @@ public:
 
 	UPROPERTY(VisibleAnywhere)
 	UPaperFlipbookComponent* SpriteComponent;
+
+	UPROPERTY(VisibleAnywhere)
+	USeagullCutoutRigComponent* CutoutRig = nullptr;
 
 	ESeagullEnemyType EnemyType = ESeagullEnemyType::Crab;
 	int32 MaxHP = 30;
@@ -55,6 +59,8 @@ protected:
 
 	float AttackCooldown = 1.0f;
 	float AttackTimer = 0.f;
+	float HitFlashTimer = 0.f;
+	float VisualFacing = 1.f;
 
 	AActor* GetPlayerPawn() const;
 

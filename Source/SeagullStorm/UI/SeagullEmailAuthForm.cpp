@@ -125,6 +125,11 @@ void USeagullEmailAuthForm::OnSubmitClicked()
 
 	USeagullHorizonManager* HM = GI->GetHorizonManager();
 	if (!HM) return;
+	if (HM->IsAuthenticating())
+	{
+		if (StatusText) StatusText->SetText(FText::FromString(TEXT("Authentication is already in progress. Retry when it finishes.")));
+		return;
+	}
 
 	if (StatusText) StatusText->SetText(FText::FromString(TEXT("Authenticating...")));
 
@@ -157,12 +162,14 @@ void USeagullEmailAuthForm::OnCloseClicked()
 
 void USeagullEmailAuthForm::OnAuthResult(bool bSuccess)
 {
+	if (!IsInViewport()) return;
 	if (bSuccess)
 	{
 		RemoveFromParent();
 		ASeagullStormGameMode* GM = Cast<ASeagullStormGameMode>(UGameplayStatics::GetGameMode(GetWorld()));
 		if (GM)
 		{
+			if (USeagullGameInstance* GI = Cast<USeagullGameInstance>(UGameplayStatics::GetGameInstance(GetWorld()))) GI->BeginOnlineSession(bRegisterMode);
 			GM->SwitchToScreen(ESeagullGameScreen::Hub);
 		}
 	}

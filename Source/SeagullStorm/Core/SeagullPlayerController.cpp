@@ -11,6 +11,8 @@
 #include "EnhancedInputSubsystems.h"
 #include "InputMappingContext.h"
 #include "InputAction.h"
+#include "InputModifiers.h"
+#include "InputActionValue.h"
 #include "SeagullStorm.h"
 
 ASeagullPlayerController::ASeagullPlayerController()
@@ -27,6 +29,7 @@ void ASeagullPlayerController::BeginPlay()
 	// Create input actions programmatically
 	MoveAction = NewObject<UInputAction>(this);
 	MoveAction->ValueType = EInputActionValueType::Axis2D;
+	MoveAction->AccumulationBehavior = EInputActionAccumulationBehavior::Cumulative;
 
 	PauseAction = NewObject<UInputAction>(this);
 	PauseAction->ValueType = EInputActionValueType::Boolean;
@@ -53,7 +56,16 @@ void ASeagullPlayerController::BeginPlay()
 	UInputModifierNegate* NegateLeft = NewObject<UInputModifierNegate>(this);
 	MoveLeftMap.Modifiers.Add(NegateLeft);
 
-	// Escape for pause
+	FEnhancedActionKeyMapping& ArrowUp = InputMappingContext->MapKey(MoveAction, EKeys::Up);
+    ArrowUp.Modifiers.Add(SwizzleUp);
+    FEnhancedActionKeyMapping& ArrowDown = InputMappingContext->MapKey(MoveAction, EKeys::Down);
+    ArrowDown.Modifiers.Add(SwizzleDown);
+    ArrowDown.Modifiers.Add(NegateDown);
+    InputMappingContext->MapKey(MoveAction, EKeys::Right);
+    FEnhancedActionKeyMapping& ArrowLeft = InputMappingContext->MapKey(MoveAction, EKeys::Left);
+    ArrowLeft.Modifiers.Add(NegateLeft);
+
+    // Escape for pause
 	InputMappingContext->MapKey(PauseAction, EKeys::Escape);
 
 	// Gamepad left-stick binding
@@ -83,6 +95,7 @@ void ASeagullPlayerController::BeginPlay()
 	{
 		EIC->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ASeagullPlayerController::OnMoveInput);
 		EIC->BindAction(MoveAction, ETriggerEvent::Completed, this, &ASeagullPlayerController::OnMoveInput);
+		EIC->BindAction(MoveAction, ETriggerEvent::Canceled, this, &ASeagullPlayerController::OnMoveInput);
 		EIC->BindAction(PauseAction, ETriggerEvent::Started, this, &ASeagullPlayerController::OnPauseInput);
 	}
 }
@@ -103,6 +116,8 @@ void ASeagullPlayerController::OnPauseInput()
 
 void ASeagullPlayerController::OnScreenChanged(ESeagullGameScreen NewScreen)
 {
+	SetPause(false);
+	CachedMoveInput = FVector2D::ZeroVector;
 	ClearAllWidgets();
 
 	switch (NewScreen)
@@ -150,6 +165,7 @@ void ASeagullPlayerController::ShowLevelUpOverlay(const TArray<FSeagullLevelUpCh
 		LevelUpWidget->SetChoices(Choices);
 		LevelUpWidget->AddToViewport(100);
 		SetPause(true);
+		SetInputMode(FInputModeUIOnly());
 	}
 }
 
@@ -160,6 +176,8 @@ void ASeagullPlayerController::HideLevelUpOverlay()
 		LevelUpWidget->RemoveFromParent();
 	}
 	SetPause(false);
+	CachedMoveInput = FVector2D::ZeroVector;
+	SetInputMode(FInputModeGameAndUI());
 }
 
 void ASeagullPlayerController::TogglePause()
@@ -171,6 +189,7 @@ void ASeagullPlayerController::TogglePause()
 		PauseWidget = CreateWidget<USeagullPauseMenu>(this);
 		if (PauseWidget) PauseWidget->AddToViewport(100);
 		SetPause(true);
+		SetInputMode(FInputModeUIOnly());
 	}
 	else
 	{
@@ -180,6 +199,8 @@ void ASeagullPlayerController::TogglePause()
 			PauseWidget = nullptr;
 		}
 		SetPause(false);
+		CachedMoveInput = FVector2D::ZeroVector;
+		SetInputMode(FInputModeGameAndUI());
 	}
 }
 

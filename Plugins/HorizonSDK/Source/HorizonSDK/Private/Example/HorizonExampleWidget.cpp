@@ -1,6 +1,7 @@
 // Copyright (c) 2025-2026 horizOn. All rights reserved.
 
 #include "Example/HorizonExampleWidget.h"
+#include "Engine/GameInstance.h"
 #include "HorizonSubsystem.h"
 #include "Managers/HorizonAuthManager.h"
 #include "Managers/HorizonCloudSaveManager.h"
@@ -101,14 +102,14 @@ UEditableTextBox* UHorizonExampleWidget::CreateInputField(const FString& HintTex
 {
 	UEditableTextBox* Input = WidgetTree->ConstructWidget<UEditableTextBox>();
 	Input->SetHintText(FText::FromString(HintText));
-	Input->SetMinimumDesiredWidth(140.0f);
+	Input->SetMinDesiredWidth(140.0f);
 
-	FEditableTextBoxStyle InputStyle = Input->WidgetStyle;
+	FEditableTextBoxStyle InputStyle = Input->GetWidgetStyle();
 	FSlateBrush BgBrush;
 	BgBrush.TintColor = FSlateColor(FLinearColor(0.08f, 0.08f, 0.12f, 1.0f));
 	InputStyle.SetBackgroundImageNormal(BgBrush);
 	InputStyle.SetForegroundColor(FSlateColor(FLinearColor::White));
-	Input->SetStyle(InputStyle);
+	Input->SetWidgetStyle(InputStyle);
 
 	return Input;
 }

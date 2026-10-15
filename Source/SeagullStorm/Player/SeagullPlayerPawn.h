@@ -13,6 +13,7 @@ class USpringArmComponent;
 class USeagullHealthComponent;
 class USeagullXPComponent;
 class USeagullWeaponManager;
+class USeagullCutoutRigComponent;
 
 UCLASS()
 class ASeagullPlayerPawn : public APawn
@@ -30,6 +31,9 @@ public:
 
 	UPROPERTY(VisibleAnywhere)
 	UPaperFlipbookComponent* SpriteComponent;
+
+	UPROPERTY(VisibleAnywhere)
+	USeagullCutoutRigComponent* CutoutRig;
 
 	UPROPERTY(VisibleAnywhere)
 	UFloatingPawnMovement* MovementComponent;
@@ -67,6 +71,7 @@ public:
 	FVector2D LastMoveDirection = FVector2D(1.f, 0.f);
 
 	void ApplyUpgrades();
+	void PlayAttackPose();
 
 	UFUNCTION()
 	void OnDeath();

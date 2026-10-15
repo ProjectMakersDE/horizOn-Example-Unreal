@@ -20,7 +20,7 @@ public:
 	float XPLevelCurve = 1.4f;
 
 	// Validated Actions (only used when built with HORIZON_WITH_VALIDATED_ACTIONS=1)
-	bool bValidatedActionsEnabled = false;
+	bool bValidatedActionsEnabled = true;
 	FString ValidatedCoinsKey;
 	FString ValidatedRunsBoard = TEXT("default");
 

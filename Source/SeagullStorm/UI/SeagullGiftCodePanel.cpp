@@ -94,7 +94,8 @@ void USeagullGiftCodePanel::NativeConstruct()
 
 void USeagullGiftCodePanel::OnRedeemClicked()
 {
-	FString Code = CodeInput ? CodeInput->GetText().ToString() : TEXT("");
+	if (bRedeeming) return;
+	FString Code = CodeInput ? CodeInput->GetText().ToString().TrimStartAndEnd() : TEXT("");
 	if (Code.IsEmpty())
 	{
 		if (StatusText) StatusText->SetText(FText::FromString(TEXT("Enter a code")));
@@ -103,6 +104,12 @@ void USeagullGiftCodePanel::OnRedeemClicked()
 
 	USeagullGameInstance* GI = Cast<USeagullGameInstance>(UGameplayStatics::GetGameInstance(GetWorld()));
 	if (!GI) return;
+	USeagullHorizonManager* HM = GI->GetHorizonManager();
+	if (!HM || GI->bPracticeMode || !GI->CanMutateProgress())
+	{
+		if (StatusText) StatusText->SetText(FText::FromString(TEXT("Sign in and wait for a successful initial cloud save load before redeeming.")));
+		return;
+	}
 
 	// Check if already redeemed
 	if (GI->SaveData.GiftCodesRedeemed.Contains(Code))
@@ -111,71 +118,84 @@ void USeagullGiftCodePanel::OnRedeemClicked()
 		return;
 	}
 
-	USeagullHorizonManager* HM = GI->GetHorizonManager();
-	if (!HM) return;
-
+	bRedeeming = true;
+	if (RedeemButton) RedeemButton->SetIsEnabled(false);
 	if (StatusText) StatusText->SetText(FText::FromString(TEXT("Validating...")));
 
-	// Validate first, then redeem. Weak self: the panel can be closed and GC'd
-	// while the requests are in flight; GI and HM live on the GameInstance.
+	// A validated code and its rewards belong to this exact player session.
+	const uint64 Generation = GI->SessionGeneration;
+	const FString Owner = GI->SaveOwnerId;
 	TWeakObjectPtr<USeagullGiftCodePanel> WeakThis(this);
-	HM->ValidateGiftCode(Code, [WeakThis, Code, GI, HM](bool bRequestSuccess, bool bValid)
+	TWeakObjectPtr<USeagullGameInstance> WeakGI(GI);
+	TWeakObjectPtr<USeagullHorizonManager> WeakHM(HM);
+	HM->ValidateGiftCode(Code, [WeakThis, WeakGI, WeakHM, Code, Generation, Owner](bool bRequestSuccess, bool bValid)
 	{
+		USeagullGiftCodePanel* Panel = WeakThis.Get();
+		USeagullGameInstance* Instance = WeakGI.Get();
+		USeagullHorizonManager* Manager = WeakHM.Get();
+		if (!Panel || !Panel->IsInViewport() || !Instance || !Manager) return;
+		if (Instance->SessionGeneration != Generation || Instance->SaveOwnerId != Owner || Instance->bPracticeMode
+			|| Manager->GetUserId() != Owner || !Instance->CanMutateProgress())
+		{
+			Panel->CompleteRequest(TEXT("Player session changed; code was not redeemed."));
+			return;
+		}
 		if (!bRequestSuccess || !bValid)
 		{
-			USeagullGiftCodePanel* Panel = WeakThis.Get();
-			if (Panel && Panel->StatusText) Panel->StatusText->SetText(FText::FromString(TEXT("Invalid code")));
+			Panel->CompleteRequest(TEXT("Code invalid or validation unavailable."));
 			return;
 		}
 
-		HM->RedeemGiftCode(Code, [WeakThis, Code, GI, HM](bool bSuccess, const FString& GiftData, const FString& Message)
+		Manager->RedeemGiftCode(Code, [WeakThis, WeakGI, WeakHM, Code, Generation, Owner](bool bSuccess, const FString& GiftData, const FString& /*Message*/)
 		{
+			USeagullGameInstance* Instance = WeakGI.Get();
+			USeagullHorizonManager* Manager = WeakHM.Get();
 			USeagullGiftCodePanel* Panel = WeakThis.Get();
-			if (bSuccess)
+			// Once consumed, apply to the original save even if the modal was closed.
+			// Never apply a late response to another player or the practice economy.
+			if (!Instance || !Manager || Instance->SessionGeneration != Generation || Instance->SaveOwnerId != Owner
+				|| Instance->bPracticeMode || Manager->GetUserId() != Owner || !Instance->CanMutateProgress()) return;
+			if (!bSuccess)
 			{
-				GI->SaveData.GiftCodesRedeemed.Add(Code);
-				// Parse gift data for coin reward
-				int32 CoinReward = 0;
-				TSharedPtr<FJsonObject> JsonObj;
-				TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(GiftData);
-				if (FJsonSerializer::Deserialize(Reader, JsonObj) && JsonObj.IsValid())
-				{
-					CoinReward = JsonObj->GetIntegerField(TEXT("coins"));
-				}
-				if (CoinReward <= 0) CoinReward = 500; // Fallback
-				GI->SaveData.Coins += CoinReward;
-
-				// Persist right away -- the server already consumed the single-use
-				// code, so the reward must survive quitting before the next
-				// game-over save (on-demand request, within the design budget).
-				HM->SaveData(GI->SaveData.ToJsonString(), [HM](bool bSaveSuccess)
-				{
-					if (!bSaveSuccess && HM)
-					{
-						HM->RecordException(
-							TEXT("SaveData failed"),
-							TEXT("CloudSave SaveData returned bSuccess=false after gift code redemption"));
-					}
-				});
-
-				if (Panel)
-				{
-					if (Panel->StatusText) Panel->StatusText->SetText(FText::FromString(
-						FString::Printf(TEXT("Code redeemed! +%d coins"), CoinReward)));
-
-					// Update the hub's coin counter behind the modal
-					ASeagullPlayerController* PC = Cast<ASeagullPlayerController>(
-						UGameplayStatics::GetPlayerController(Panel->GetWorld(), 0));
-					if (PC) PC->RefreshHubDisplay();
-				}
-				UE_LOG(LogSeagullStorm, Log, TEXT("Gift code redeemed: %s (+%d coins)"), *Code, CoinReward);
+				if (Panel && Panel->IsInViewport()) Panel->CompleteRequest(TEXT("Redemption failed."));
+				return;
 			}
-			else
+			Instance->SaveData.GiftCodesRedeemed.AddUnique(Code);
+			int32 CoinReward = 0;
+			TSharedPtr<FJsonObject> JsonObj;
+			double CoinValue = 0.0;
+			if (FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(GiftData), JsonObj) && JsonObj.IsValid()
+				&& JsonObj->TryGetNumberField(TEXT("coins"), CoinValue) && FMath::IsFinite(CoinValue)
+				&& CoinValue > 0.0 && CoinValue <= static_cast<double>(MAX_int32))
 			{
-				if (Panel && Panel->StatusText) Panel->StatusText->SetText(FText::FromString(TEXT("Redemption failed")));
+				const int32 WholeCoins = static_cast<int32>(CoinValue);
+				if (CoinValue == static_cast<double>(WholeCoins))
+					CoinReward = FMath::Min(WholeCoins, MAX_int32 - FMath::Max(0, Instance->SaveData.Coins));
 			}
+			Instance->SaveData.Coins += CoinReward;
+			const FString RewardText = CoinReward > 0 ? FString::Printf(TEXT("Code redeemed! +%d coins"), CoinReward)
+				: FString(TEXT("Code redeemed. No coin reward; cosmetic unlocks appear in your profile."));
+			if (Panel && Panel->IsInViewport())
+			{
+				Panel->CompleteRequest(RewardText + TEXT(" / syncing cloud save..."));
+				if (ASeagullPlayerController* PC = Cast<ASeagullPlayerController>(UGameplayStatics::GetPlayerController(Panel->GetWorld(), 0))) PC->RefreshHubDisplay();
+			}
+			Manager->SaveData(Instance->SaveData.ToJsonString(), [WeakThis, WeakGI, Generation, Owner, RewardText](bool bSaved)
+			{
+				USeagullGameInstance* Instance = WeakGI.Get();
+				if (!Instance || Instance->SessionGeneration != Generation || Instance->SaveOwnerId != Owner || Instance->bPracticeMode) return;
+				if (USeagullGiftCodePanel* CurrentPanel = WeakThis.Get())
+					if (CurrentPanel->IsInViewport()) CurrentPanel->CompleteRequest(RewardText + (bSaved ? TEXT(" / saved") : TEXT(" / cloud save failed; reward retained in memory")));
+			});
 		});
 	});
+}
+
+void USeagullGiftCodePanel::CompleteRequest(const FString& Message)
+{
+	bRedeeming = false;
+	if (RedeemButton) RedeemButton->SetIsEnabled(true);
+	if (StatusText) StatusText->SetText(FText::FromString(Message));
 }
 
 void USeagullGiftCodePanel::OnCloseClicked()

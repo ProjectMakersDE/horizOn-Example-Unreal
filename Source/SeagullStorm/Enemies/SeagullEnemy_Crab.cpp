@@ -1,4 +1,5 @@
 #include "Enemies/SeagullEnemy_Crab.h"
+#include "Animation/SeagullCutoutRigComponent.h"
 
 ASeagullEnemy_Crab::ASeagullEnemy_Crab()
 {
@@ -11,4 +12,6 @@ ASeagullEnemy_Crab::ASeagullEnemy_Crab()
 	XPDrop = 10;
 
 	LoadFlipbooks(TEXT("/Game/Flipbooks/FB_Crab_Walk"), TEXT("/Game/Flipbooks/FB_Crab_Death"));
+	CutoutRig = CreateDefaultSubobject<USeagullCutoutRigComponent>(TEXT("CutoutRig"));
+	CutoutRig->SetupAttachment(RootComponent);
 }

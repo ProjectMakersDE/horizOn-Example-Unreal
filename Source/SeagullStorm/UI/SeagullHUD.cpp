@@ -1,12 +1,14 @@
 #include "UI/SeagullHUD.h"
 #include "UI/SeagullWidgetStyles.h"
 #include "Core/SeagullStormGameState.h"
+#include "Core/SeagullStormGameMode.h"
 #include "Core/SeagullPlayerController.h"
 #include "Core/SeagullTypes.h"
 #include "Player/SeagullPlayerPawn.h"
 #include "Player/SeagullHealthComponent.h"
 #include "Blueprint/WidgetTree.h"
 #include "Components/Button.h"
+#include "Components/Border.h"
 #include "Components/CanvasPanel.h"
 #include "Components/CanvasPanelSlot.h"
 #include "Components/HorizontalBox.h"
@@ -25,6 +27,22 @@ void USeagullHUD::NativeOnInitialized()
 	// Transparent root: gameplay stays visible behind the HUD elements
 	UCanvasPanel* RootCanvas = WidgetTree->ConstructWidget<UCanvasPanel>(UCanvasPanel::StaticClass(), TEXT("RootCanvas"));
 	WidgetTree->RootWidget = RootCanvas;
+
+	// Charcoal backing keeps every HUD label readable over the cream arena.
+	UBorder* TopPlate = SeagullWidgetStyles::MakePanel(WidgetTree, SeagullColors::DarkBG, 0.f);
+	TopPlate->SetVisibility(ESlateVisibility::HitTestInvisible);
+	if (UCanvasPanelSlot* PlateSlot = RootCanvas->AddChildToCanvas(TopPlate))
+	{
+		PlateSlot->SetAnchors(FAnchors(0.f, 0.f, 1.f, 0.f));
+		PlateSlot->SetOffsets(FMargin(24.f, 14.f, 24.f, 112.f));
+	}
+	UBorder* BottomPlate = SeagullWidgetStyles::MakePanel(WidgetTree, SeagullColors::DarkBG, 0.f);
+	BottomPlate->SetVisibility(ESlateVisibility::HitTestInvisible);
+	if (UCanvasPanelSlot* PlateSlot = RootCanvas->AddChildToCanvas(BottomPlate))
+	{
+		PlateSlot->SetAnchors(FAnchors(0.f, 1.f, 1.f, 1.f));
+		PlateSlot->SetOffsets(FMargin(24.f, -130.f, 24.f, 116.f));
+	}
 
 	// Top-left: wave + HP bar
 	UVerticalBox* TopLeft = WidgetTree->ConstructWidget<UVerticalBox>(UVerticalBox::StaticClass());
@@ -79,6 +97,14 @@ void USeagullHUD::NativeOnInitialized()
 	LevelText->SetJustification(ETextJustify::Right);
 	SeagullWidgetStyles::AddRow(TopRight, LevelText, 4.f);
 
+	RunStatusText = SeagullWidgetStyles::MakeText(WidgetTree, TEXT(""), 14, SeagullColors::Sand);
+	RunStatusText->SetAutoWrapText(true);
+	if (UCanvasPanelSlot* StatusSlot = RootCanvas->AddChildToCanvas(RunStatusText))
+	{
+		StatusSlot->SetAnchors(FAnchors(0.f, 1.f, 1.f, 1.f));
+		StatusSlot->SetOffsets(FMargin(40.f, -116.f, 220.f, 50.f));
+	}
+
 	// Bottom: XP bar stretched across the screen
 	XPBar = SeagullWidgetStyles::MakeBar(WidgetTree, SeagullColors::XPGold, TEXT("XPBar"));
 	XPBar->SetPercent(0.f);
@@ -110,6 +136,10 @@ void USeagullHUD::NativeConstruct()
 void USeagullHUD::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 {
 	Super::NativeTick(MyGeometry, InDeltaTime);
+	if (ASeagullStormGameMode* GM = Cast<ASeagullStormGameMode>(UGameplayStatics::GetGameMode(GetWorld())))
+	{
+		if (RunStatusText) RunStatusText->SetText(FText::FromString(GM->GetRunStatus()));
+	}
 
 	ASeagullStormGameState* GS = GetWorld()->GetGameState<ASeagullStormGameState>();
 	if (!GS) return;
