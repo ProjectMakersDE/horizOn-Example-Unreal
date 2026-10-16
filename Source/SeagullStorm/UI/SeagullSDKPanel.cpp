@@ -37,7 +37,7 @@ void USeagullSDKPanel::NativeOnInitialized()
     UVerticalBox* Column = WidgetTree->ConstructWidget<UVerticalBox>();
     Scroll->AddChild(Column);
     SeagullWidgetStyles::AddRow(Column, SeagullWidgetStyles::MakeText(WidgetTree,
-        TEXT("horizOn SDK / 1.7.0"), 24, SeagullColors::Orange));
+        TEXT("horizOn SDK"), 24, SeagullColors::Orange));
     UTextBlock* Intro = SeagullWidgetStyles::MakeText(WidgetTree,
         TEXT("Run tickets and evidence are used during online play. Explore board queries, server-owned balances and localization here. Gift codes, news and feedback are in the hub."),
         16, SeagullColors::LightText);

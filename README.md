@@ -18,15 +18,16 @@ full-image flipbooks are hidden while the complete rig is available. Actor
 collision, movement and 44/38-unit full-canvas widths stay unchanged.
 Moving feet/legs retain their walk cycle during auto-fire wing/claw attacks.
 
-**Unreal readiness:** this repository contains source and loose PNG/OGG assets.
-The October 2, 2026 host has no Unreal installation. UnrealBuildTool compilation,
-the editor import script, Play In Editor and packaging remain unverified. There
-is no committed `MainMap.umap` or imported sprite/flipbook `.uasset` yet. Use the
-[editor setup](EDITOR_SETUP.md) to produce them on an Unreal 5.5 machine.
+**Unreal readiness:** the project targets Unreal 5.8.3. The native editor target,
+asset bootstrap and a rendered standalone editor-game run have passed on macOS
+arm64 with Xcode 26.6 and the Metal Toolchain. Imported maps, sprites, flipbooks,
+materials and audio are committed alongside their original source assets.
+Packaged-build verification is still in progress for this change.
 
 ## Start
 
-1. Open `SeagullStorm.uproject` in Unreal **5.5** and compile `SeagullStormEditor`.
+1. Open `SeagullStorm.uproject` in Unreal **5.8** and compile `SeagullStormEditor`.
+   Imported assets are already included; the bootstrap is only needed to regenerate them.
 2. Run `Scripts/setup_editor_assets.py` through **Tools > Execute Python Script**.
    The project enables the bundled Paper2D/Python/editor scripting plugins.
 3. Restart the editor to refresh constructor asset caches, open
@@ -48,12 +49,11 @@ commit a real key, password or session token.
 
 ## Official embedded SDK
 
-`Plugins/HorizonSDK` is the complete, unmodified official **v1.7.0** plugin from
-commit `2f4b510be66353da8c00821ece04cd2b975b5ba5`, published October 1, 2026.
-It includes Validated Actions, server-owned state, evidence, player profiles,
-validated-only leaderboard handling, anonymous-auth restoration and the POST
-binary-cloud-load fix from `develop` commit `68002c3`. No unpublished SDK patch is
-needed. `SDK-SOURCE.json` records every official plugin file's SHA-256.
+`Plugins/HorizonSDK` is the complete, unmodified official develop snapshot
+`12120bf4e19b7c6fd56157c6f8637cf05d51dadb` (descriptor version 1.9.0).
+It includes Player Values, Statistics, Realtime, Validated Actions and the native
+unity-build correction. This is an explicitly pinned develop source snapshot;
+no release was created. `SDK-SOURCE.json` records all 151 official files and hashes.
 
 The example enables `HORIZON_WITH_VALIDATED_ACTIONS=1`. The release synchronization
 workflow replaces the entire plugin on future SDK releases. Example configuration
@@ -116,6 +116,7 @@ catalogs, unsupported capabilities and unranked players have visible outcomes.
 | Player Profile | Read current avatar/frame/badges and cosmetics catalog; select an available avatar while preserving other slots |
 | Localization | SDK tools fetch English/German strings and display returned keys; game UI itself remains English |
 | News | Hub and pause menu display app news |
+| Player Values | Separate hub panel: explicit balances/offers, confirmed-price purchase, signed adjustment and original-operation retry |
 | Gift Codes | Explicit validation/redeem panel; unavailable in practice |
 | Feedback | Explicit category/title/message form; unavailable in practice |
 | User Logs / Crash Reporting | Online run summaries, balancing warnings, breadcrumbs, custom keys and handled failures; no deliberate crash |
@@ -159,9 +160,8 @@ python3 Tests/run_sdk_contracts.py --sdk-source /path/to/horizOn-SDK-Unreal
 ```
 
 The input-log check compiles the real example implementation against a small
-array boundary. The SDK runner uses official v1.7.0 fixtures against this embedded
-plugin: leaderboard, gift code, player profile, Validated Actions and actual
-anonymous-auth/cloud-save production methods. The session-boundary check compiles
+array boundary. The SDK runner loads fixtures from the exact official commit in
+`SDK-SOURCE.json`, including statistics and player-value contracts. The session-boundary check compiles
 the real facade methods against delayed SDK boundaries and verifies auth/practice/
 sign-out races, stale config/save reads, preload purchase gates, ordered owner-bound
 writes, ticket serialization and synchronous/stale evidence events. All passed on
@@ -176,10 +176,44 @@ maps Paper2D local X to world X and local Z to world Y, then mirrors the whole
 rig parent. Integrity checks verify all 16 part PNG hashes, RGBA/full-canvas
 dimensions and the separate shadow. These passed locally, without native Unreal.
 
-Next verification on Unreal 5.5: compile the editor target, run the asset bootstrap,
-inspect sprites and map, play a practice run through upgrades/death/retry,
-exercise a QA player's ticket/submit/rank/state flow, then package and launch a
-build. All remain pending; no Unreal playability or packaging result is claimed.
+The native acceptance runner starts an isolated synthetic HTTP fixture on
+127.0.0.1, creates a fresh Unreal user directory, checks the actual automation
+report and HTTP operation IDs, and stops both owned processes. It never reads a
+real API key. Use a fresh output directory for each run:
+
+```sh
+python3 Scripts/run_native_acceptance.py --editor /path/to/UnrealEditor --output /tmp/seagull-game-proof
+python3 Scripts/run_native_acceptance.py --editor /path/to/UnrealEditor --hello --output /tmp/seagull-hello-proof
+```
+
+Use `--game /path/to/SeagullStorm` for a packaged Development executable, or
+`--headless` for a separate NullRHI check. Rendered runs capture the actual game
+viewport; NullRHI does not provide visual evidence. The game check covers title,
+practice, movement, cutout assets, pause, XP choice, death, restart, timer/boss
+victory and the Player Values flow. The Hello check spawns the unchanged official
+`AHelloHorizonActor` in a base GameMode and verifies connect, anonymous signup,
+score submission and its visible completion. These are loopback integration
+proofs, separate from real Develop or production service acceptance.
+
+## Player Values
+
+The hub's **Player Values** panel uses the SDK's typed snapshots. Practice remains
+local. Online balances never use local progression coins and are replaced from
+authorized server state, with no client-side delta credit. Refresh offers before
+purchasing; a changed definition/price requires another explicit confirmation.
+
+A purchase/adjustment first persists its exact payload and operation ID in a
+project/player-bound SaveGame slot. Regional hosts share that stable identity.
+An unknown result, timeout or refusal keeps the original intent; **Retry original**
+resends that same ID and payload. No new operation can overtake it. Corrupt or
+conflicting saved data blocks a new write and is retained for recovery. Only a
+confirmed successful original operation removes its saved intent. Session,
+project, host, practice and widget generations fence late callbacks.
+
+The native fixture deliberately commits the purchase and loses both initial
+receipts. Explicit retry receives the replay: gold ends at 93 and energy at 10,
+then a separate -1 adjustment ends at 9. Exactly one purchase ID is used across
+all three transport attempts.
 
 ## Assets and license
 

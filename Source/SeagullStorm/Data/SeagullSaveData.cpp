@@ -63,8 +63,8 @@ FSeagullSaveData FSeagullSaveData::FromJsonString(const FString& Json)
 		for (const auto& Pair : (*UpgradesObj)->Values)
 		{
 			double Number = 0;
-			if (Data.Upgrades.Contains(Pair.Key) && Pair.Value->TryGetNumber(Number) && FMath::IsFinite(Number))
-				Data.Upgrades.Add(Pair.Key, static_cast<int32>(FMath::Clamp(Number, 0.0, 100.0)));
+			if (Data.Upgrades.Contains(FString(Pair.Key)) && Pair.Value->TryGetNumber(Number) && FMath::IsFinite(Number))
+				Data.Upgrades.Add(FString(Pair.Key), static_cast<int32>(FMath::Clamp(Number, 0.0, 100.0)));
 		}
 	}
 

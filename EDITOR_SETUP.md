@@ -1,12 +1,13 @@
-# Unreal 5.5 editor setup
+# Unreal 5.8 editor setup
 
-The refresh host has no Unreal installation. Native compilation, the Python
-bootstrap and runtime visuals are **pending**. This project ships loose art/audio
-and C++ source; no `.umap` or imported `.uasset` is claimed as tested or complete.
+The project has been compiled and imported with Unreal 5.8.3 on macOS. Imported
+`.umap`/`.uasset` files are included. Source PNG/OGG assets and the idempotent
+bootstrap remain available to regenerate deliberately removed assets. See the
+README for the native acceptance runner and exact verification boundaries.
 
 ## Bootstrap
 
-1. Open `SeagullStorm.uproject` in Unreal **5.5**. Compile the editor target with the
+1. Open `SeagullStorm.uproject` in Unreal **5.8**. Compile the editor target with the
    platform's normal C++ toolchain (Xcode on Mac, Visual Studio on Windows).
 2. Confirm Paper2D, Python Editor Script Plugin and Editor Scripting Utilities are
    enabled. The `.uproject` enables the scripting plugins for editor targets only.
@@ -64,7 +65,8 @@ The octopus remains 86 units and other foes 38–42 units.
 Cutout assets are named `/Game/Sprites/Cutout/SP_Cutout_gull_<part>` and
 `SP_Cutout_crab_<part>` for each manifest part, plus `SP_Cutout_shadow`.
 They do not need flipbooks. Preserve their custom pivots when importing manually.
-The packaging config always cooks `/Game/Sprites/Cutout` and its dependencies,
+The packaging config always cooks `/Game/Sprites` (including Cutout), `/Game/Flipbooks`,
+`/Game/Materials`, `/Game/Audio`, MainMap and their dependencies,
 since the C++ rig resolves these assets at BeginPlay.
 
 If the script reports a Python API/import error, keep the source files and use
@@ -80,7 +82,7 @@ The script follows Epic's published APIs:
 [PaperSpriteFactory](https://dev.epicgames.com/documentation/en-us/unreal-engine/python-api/class/PaperSpriteFactory?application_version=5.5),
 [PaperFlipbookKeyFrame](https://dev.epicgames.com/documentation/en-us/unreal-engine/python-api/class/PaperFlipbookKeyFrame?application_version=5.5),
 [LevelEditorSubsystem](https://dev.epicgames.com/documentation/en-us/unreal-engine/python-api/class/LevelEditorSubsystem?application_version=5.5).
-The exact engine execution still needs verification.
+The bootstrap has executed successfully in the actual 5.8 editor commandlet.
 
 ## Native acceptance checks
 

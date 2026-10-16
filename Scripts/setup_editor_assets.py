@@ -17,7 +17,7 @@ LIB = unreal.EditorAssetLibrary
 
 def import_file(path, destination):
     asset_path = destination + "/" + path.stem
-    existing = LIB.load_asset(asset_path)
+    existing = LIB.load_asset(asset_path) if LIB.does_asset_exist(asset_path) else None
     if existing:
         return existing
     task = unreal.AssetImportTask()
@@ -42,7 +42,7 @@ def dimensions(path):
 
 
 def sprite(name, filename, world_size, source_rect=None, destination="/Game/Sprites", pivot=None, translucent=False):
-    existing = LIB.load_asset(destination + "/" + name)
+    existing = LIB.load_asset(destination + "/" + name) if LIB.does_asset_exist(destination + "/" + name) else None
     if existing:
         return existing
     path = ROOT / "Content" / "Textures" / filename
@@ -73,7 +73,7 @@ def sprite(name, filename, world_size, source_rect=None, destination="/Game/Spri
     if pivot:
         asset.set_editor_property("custom_pivot_point", unreal.Vector2D(*pivot))
     asset.set_editor_property("sprite_collision_domain", unreal.SpriteCollisionMode.NONE)
-    material = LIB.load_asset("/Paper2D/TranslucentUnlitSpriteMaterial" if translucent else "/Paper2D/MaskedUnlitSpriteMaterial")
+    material = unreal.load_asset("/Paper2D/TranslucentUnlitSpriteMaterial" if translucent else "/Paper2D/MaskedUnlitSpriteMaterial")
     if not material:
         raise RuntimeError("Paper2D unlit material missing. Enable Paper2D.")
     asset.set_editor_property("default_material", material)
@@ -96,6 +96,7 @@ def flipbook(name, image):
 
 
 def main():
+    unreal.AssetRegistryHelpers.get_asset_registry().search_all_assets(synchronous_search=True)
     for folder in ("/Game/Textures", "/Game/Sprites", "/Game/Flipbooks", "/Game/Materials", "/Game/Maps"):
         LIB.make_directory(folder)
     cutout_destination = "/Game/Sprites/Cutout"

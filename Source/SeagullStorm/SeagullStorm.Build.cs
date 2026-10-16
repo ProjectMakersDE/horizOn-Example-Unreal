@@ -5,6 +5,7 @@ public class SeagullStorm : ModuleRules
     public SeagullStorm(ReadOnlyTargetRules Target) : base(Target)
     {
         PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
+        PrivateIncludePaths.Add(ModuleDirectory);
 
         PublicDependencyModuleNames.AddRange(new string[]
         {
@@ -22,7 +23,7 @@ public class SeagullStorm : ModuleRules
             "JsonUtilities"
         });
 
-        // Official 1.7.0 embeds tickets, server-owned state and evidence upload.
+        // Official SDK embeds tickets, server-owned state and evidence upload.
         PublicDefinitions.Add("HORIZON_WITH_VALIDATED_ACTIONS=1");
     }
 }

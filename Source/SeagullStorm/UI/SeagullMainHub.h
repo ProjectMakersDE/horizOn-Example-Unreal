@@ -89,6 +89,9 @@ private:
 	UFUNCTION()
 	void OnSDKClicked();
 
+    UFUNCTION()
+    void OnPlayerValuesClicked();
+
 	UPROPERTY()
 	UTextBlock* SessionText = nullptr;
 

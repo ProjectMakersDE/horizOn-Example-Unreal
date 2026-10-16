@@ -92,7 +92,7 @@ struct FakeAuth {
  void SignUpAnonymous(const FString&,std::function<void(bool)> C) { Pending.push_back(C); }
  void SignInEmail(const FString&,const FString&,std::function<void(bool)> C) { Pending.push_back(C); }
  void SignUpEmail(const FString&,const FString&,const FString&,std::function<void(bool)> C) { Pending.push_back(C); }
- void RestoreSession(std::function<void(bool)> C) { Pending.push_back(C); }
+ void RestoreAnonymousSession(std::function<void(bool)> C) { Pending.push_back(C); }
  void SignInWithApple(std::function<void(bool)> C) { Pending.push_back(C); }
  void SignOut() { Current.UserId.Empty(); }
  bool IsSignedIn() const { return !Current.UserId.IsEmpty(); }

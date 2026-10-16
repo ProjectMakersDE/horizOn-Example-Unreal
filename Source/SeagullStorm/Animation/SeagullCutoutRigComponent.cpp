@@ -1,4 +1,5 @@
 #include "Animation/SeagullCutoutRigComponent.h"
+#include "Animation/SeagullSpritePlane.h"
 #include "PaperSprite.h"
 #include "PaperSpriteComponent.h"
 #include "GameFramework/Actor.h"
@@ -28,12 +29,6 @@ UPaperSprite* LoadPartCached(const FString& Path)
 	return Sprite.Get();
 }
 
-FQuat SpritePlane()
-{
-	// Paper2D is local XZ. Explicit axes avoid a pitch rotation, which would
-	// keep a sprite on XZ. World +Y is screen-up for this orthographic camera.
-	return FRotationMatrix::MakeFromXZ(FVector::ForwardVector, FVector::RightVector).ToQuat();
-}
 }
 
 USeagullCutoutRigComponent::USeagullCutoutRigComponent()
@@ -81,7 +76,7 @@ bool USeagullCutoutRigComponent::Initialize(SeagullCutout::Character Kind, float
 	Shadow->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	Shadow->SetGenerateOverlapEvents(false);
 	Shadow->SetCastShadow(false);
-	Shadow->SetRelativeRotation(SpritePlane());
+	Shadow->SetRelativeRotation(SeagullSpritePlane());
 	Shadow->SetRelativeLocation(FVector((Definition.FeetX - Definition.ActorX) * UnitsPerPixel, (Definition.ActorY - Definition.FeetY - 4.f) * UnitsPerPixel, 1.f));
 	// Imported at a unit width, then sized beneath the existing canvas width.
 	Shadow->SetRelativeScale3D(FVector(CanvasWorldWidth * .54f, 1.f, CanvasWorldWidth * .30f));
@@ -103,7 +98,7 @@ void USeagullCutoutRigComponent::UpdatePose(float DeltaTime, bool Moving, float 
 		const auto Position = SeagullCutout::Project(Definition, Definition.Parts[I].X, Definition.Parts[I].Y, Pose.Parts[I], Pose.Lean, Pose.Hop, 1.f);
 		Parts[I]->SetRelativeLocation(FVector(Position.X * UnitsPerPixel, Position.Y * UnitsPerPixel, 2.f + I * .05f));
 		const float Yaw = SeagullCutout::WorldYaw(Pose.Parts[I].Angle + Pose.Lean);
-		Parts[I]->SetRelativeRotation(FQuat(FVector::UpVector, Yaw) * SpritePlane());
+		Parts[I]->SetRelativeRotation(FQuat(FVector::UpVector, Yaw) * SeagullSpritePlane());
 		Parts[I]->SetSpriteColor(Tint);
 	}
 }

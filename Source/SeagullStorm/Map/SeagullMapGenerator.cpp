@@ -1,4 +1,5 @@
 #include "Map/SeagullMapGenerator.h"
+#include "Animation/SeagullSpritePlane.h"
 #include "Core/SeagullTypes.h"
 #include "PaperSprite.h"
 #include "PaperSpriteComponent.h"
@@ -21,6 +22,9 @@ void ASeagullMapGenerator::BeginPlay()
 
 void ASeagullMapGenerator::GenerateArena()
 {
+    // The camera follows the player at the shore; keep water behind the artwork.
+    SpawnGroundTile(FVector(0.f, 0.f, -6.f), SeagullColors::Water,
+        FVector2D(SeagullConstants::ArenaWidth + 1440.f, SeagullConstants::ArenaHeight + 1440.f));
     UPaperSprite* ArenaSprite = LoadObject<UPaperSprite>(nullptr, TEXT("/Game/Sprites/SP_Arena"));
     if (ArenaSprite)
     {
@@ -28,7 +32,7 @@ void ASeagullMapGenerator::GenerateArena()
         Background->SetupAttachment(RootComponent);
         Background->SetSprite(ArenaSprite);
         Background->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-        Background->SetRelativeRotation(FRotator(-90.f, 0.f, 0.f));
+        Background->SetRelativeRotation(SeagullSpritePlane());
         Background->SetRelativeLocation(FVector(0.f, 0.f, -5.f));
         const FVector Extents = Background->CalcBounds(FTransform::Identity).BoxExtent;
         Background->SetRelativeScale3D(FVector(
@@ -38,8 +42,6 @@ void ASeagullMapGenerator::GenerateArena()
         return;
     }
     // Two large planes replace thousands of individual ground components.
-    SpawnGroundTile(FVector(0.f, 0.f, -6.f), SeagullColors::Water,
-        FVector2D(SeagullConstants::ArenaWidth + 160.f, SeagullConstants::ArenaHeight + 160.f));
     SpawnGroundTile(FVector(0.f, 0.f, -5.f), SeagullColors::Sand,
         FVector2D(SeagullConstants::ArenaWidth, SeagullConstants::ArenaHeight));
     UE_LOG(LogSeagullStorm, Warning, TEXT("Arena artwork unavailable. Run Scripts/setup_editor_assets.py in Unreal Editor."));

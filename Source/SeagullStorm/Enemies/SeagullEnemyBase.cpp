@@ -1,4 +1,5 @@
 #include "Enemies/SeagullEnemyBase.h"
+#include "Animation/SeagullSpritePlane.h"
 #include "Animation/SeagullCutoutRigComponent.h"
 #include "Player/SeagullPlayerPawn.h"
 #include "Player/SeagullHealthComponent.h"
@@ -26,7 +27,7 @@ ASeagullEnemyBase::ASeagullEnemyBase()
 
 	SpriteComponent = CreateDefaultSubobject<UPaperFlipbookComponent>(TEXT("Sprite"));
 	SpriteComponent->SetupAttachment(RootComponent);
-	SpriteComponent->SetRelativeRotation(FRotator(-90.f, 0.f, 0.f)); // Paper2D XZ -> arena XY.
+	SpriteComponent->SetRelativeRotation(SeagullSpritePlane()); // Paper2D XZ -> arena XY.
 	SpriteComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	SpriteComponent->SetRelativeLocation(FVector(0.f, 0.f, 2.f));
 }

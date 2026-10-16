@@ -2,6 +2,9 @@
 #include "Horizon/SeagullHorizonManager.h"
 #include "Data/SeagullConfigCache.h"
 #include "HorizonSubsystem.h"
+#include "HorizonConfig.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Parse.h"
 #include "SeagullStorm.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
@@ -10,7 +13,19 @@
 
 void USeagullGameInstance::Init()
 {
-	Super::Init();
+#if WITH_DEV_AUTOMATION_TESTS
+    FString Fixture;
+    if (FParse::Value(FCommandLine::Get(),TEXT("SeagullFixture="),Fixture))
+    {
+        const FString Prefix = TEXT("http://127.0.0.1:");
+        FString Port = Fixture.RightChop(Prefix.Len()); int32 Number = 0;
+        bool Digits = !Port.IsEmpty(); for (TCHAR C : Port) Digits &= C >= '0' && C <= '9';
+        checkf(Fixture.StartsWith(Prefix) && Digits && LexTryParseString(Number,*Port) && Number > 0 && Number <= 65535,TEXT("Acceptance fixture must be an exact loopback HTTP endpoint"));
+        UHorizonConfig* Config = GetMutableDefault<UHorizonConfig>();
+        Config->Hosts = {Fixture}; Config->ApiKey = TEXT("task1004-example-fixture"); Config->MaxRetryAttempts = 1; Config->RetryDelaySeconds = .5f;
+    }
+#endif
+    Super::Init();
 	SaveData.InitDefaults();
 	UE_LOG(LogSeagullStorm, Log, TEXT("SeagullGameInstance initialized"));
 }

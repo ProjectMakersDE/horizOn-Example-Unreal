@@ -29,8 +29,6 @@ FSlateFontInfo SeagullWidgetStyles::GetPixelFont(int32 Size)
 {
 	// Keep the historic helper name and bundled font for compatibility. The
 	// engine's Roboto Regular face is more readable for the cel-shaded UI.
-	if (!FCoreStyle::IsInitialized())
-		return FSlateFontInfo(FPaths::ProjectContentDir() / TEXT("Fonts/PressStart2P-Regular.ttf"), Size);
 	return FCoreStyle::GetDefaultFontStyle(TEXT("Regular"), Size, FFontOutlineSettings());
 }
 
@@ -77,6 +75,11 @@ UEditableTextBox* SeagullWidgetStyles::MakeTextInput(UWidgetTree* Tree, const FS
 	Box->SetHintText(FText::FromString(Hint));
 	// UEditableTextBox has no font setter in 5.5: set the style before Slate builds it.
 	Box->WidgetStyle.SetFont(GetPixelFont(SmallFontSize));
+    Box->WidgetStyle.SetForegroundColor(FSlateColor(SeagullColors::LightText));
+    Box->WidgetStyle.SetBackgroundImageNormal(FSlateColorBrush(SeagullColors::DarkBG));
+    Box->WidgetStyle.SetBackgroundImageHovered(FSlateColorBrush(SeagullColors::PanelBG));
+    Box->WidgetStyle.SetBackgroundImageFocused(FSlateColorBrush(SeagullColors::PanelBG));
+    Box->WidgetStyle.SetPadding(FMargin(12.f,8.f));
 	return Box;
 }
 

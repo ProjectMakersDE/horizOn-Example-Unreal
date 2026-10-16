@@ -16,14 +16,14 @@ def check(condition, label):
 lock = json.loads((ROOT / "SDK-SOURCE.json").read_text())
 plugin = ROOT / "Plugins" / "HorizonSDK"
 expected_files = set(lock["files"])
-actual_files = {str(path.relative_to(plugin)) for path in plugin.rglob("*") if path.is_file()}
+actual_files = {str(path.relative_to(plugin)) for path in plugin.rglob("*") if path.is_file() and path.relative_to(plugin).parts[0] not in {"Binaries", "Intermediate"}}
 check(actual_files == expected_files, "Embedded plugin file list differs from the official SDK snapshot")
 for name, digest in lock["files"].items():
     path = plugin / name
     check(path.is_file() and hashlib.sha256(path.read_bytes()).hexdigest() == digest, "SDK hash: " + name)
-check(json.loads((plugin / "HorizonSDK.uplugin").read_text())["VersionName"] == "1.7.0", "SDK version")
+check(json.loads((plugin / "HorizonSDK.uplugin").read_text())["VersionName"] == lock["descriptorVersion"], "SDK version")
 project = json.loads((ROOT / "SeagullStorm.uproject").read_text())
-check(project["EngineAssociation"] == "5.5", "Engine association")
+check(project["EngineAssociation"] == "5.8", "Engine association")
 manifest = json.loads((ROOT / "Content" / "Textures" / "asset-manifest.json").read_text())
 for record in manifest:
     path = ROOT / "Content" / "Textures" / record["file"]
@@ -58,7 +58,10 @@ for family in ("gull", "crab"):
 shadow = ROOT / "Content/Textures/Cutout" / rig["shadow"]["file"]
 check(shadow.is_file() and hashlib.sha256(shadow.read_bytes()).hexdigest() == rig["shadow"]["sha256"], "Cutout shadow hash")
 check(len(parts) == 16, "Cutout part count")
-check('+DirectoriesToAlwaysCook=(Path="/Game/Sprites/Cutout")' in (ROOT / "Config/DefaultGame.ini").read_text(), "Runtime cutout assets included in cooking")
+packaging = (ROOT / "Config/DefaultGame.ini").read_text()
+for family in ("Sprites", "Flipbooks", "Materials", "Audio"):
+    check(f'+DirectoriesToAlwaysCook=(Path="/Game/{family}")' in packaging, "Runtime assets included in cooking: " + family)
+check('+MapsToCook=(FilePath="/Game/Maps/MainMap")' in packaging, "MainMap included in cooking")
 print("Cutout PNG assets: 16 parts + separate shadow / hashes, RGBA, canvases and layers")
 map_exists = (ROOT / "Content" / "Maps" / "MainMap.umap").is_file()
 print("Unreal editor bootstrap: " + ("map exists; engine build/play still required" if map_exists else "PENDING / no MainMap.umap; run Scripts/setup_editor_assets.py inside Unreal"))

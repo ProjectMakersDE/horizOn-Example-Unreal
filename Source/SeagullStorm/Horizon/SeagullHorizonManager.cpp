@@ -115,7 +115,7 @@ void USeagullHorizonManager::RestoreSession(TFunction<void(bool)> Callback)
 	if (!BeginAuthRequest(Generation, Callback)) return;
 	TWeakObjectPtr<USeagullHorizonManager> Weak(this);
 
-	Subsystem->Auth->RestoreSession(FOnAuthComplete::CreateLambda(
+	Subsystem->Auth->RestoreAnonymousSession(FOnAuthComplete::CreateLambda(
 		[Weak, Generation, Callback](bool bSuccess)
 		{
 			if (USeagullHorizonManager* Self = Weak.Get()) Self->CompleteAuthRequest(Generation, bSuccess, Callback);

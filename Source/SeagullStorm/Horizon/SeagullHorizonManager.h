@@ -74,7 +74,7 @@ public:
 	void RecordException(const FString& Error, const FString& StackTrace);
 
 	// --- Validated Actions ---
-	// Official 1.7.0 plugin: ticket, server-owned state and evidence.
+	// Official SDK plugin: ticket, server-owned state and evidence.
 	// An unavailable ticket leaves the run in practice without score submission.
 	static bool IsValidatedActionsCompiledIn();
 

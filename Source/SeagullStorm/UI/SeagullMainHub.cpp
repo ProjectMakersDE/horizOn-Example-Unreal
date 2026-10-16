@@ -1,5 +1,6 @@
 #include "UI/SeagullMainHub.h"
 #include "UI/SeagullSDKPanel.h"
+#include "UI/SeagullPlayerValuesPanel.h"
 #include "UI/SeagullGiftCodePanel.h"
 #include "UI/SeagullFeedbackForm.h"
 #include "UI/SeagullSettingsPanel.h"
@@ -157,7 +158,9 @@ void USeagullMainHub::NativeOnInitialized()
 		SeagullColors::Teal, SeagullColors::LightText, SeagullWidgetStyles::SmallFontSize, TEXT("SettingsButton"));
 	SDKButton = SeagullWidgetStyles::MakeTextButton(WidgetTree, TEXT("SDK tools"), SeagullColors::Teal, SeagullColors::LightText, 16);
 	SDKButton->OnClicked.AddDynamic(this, &USeagullMainHub::OnSDKClicked);
-	UButton* ActionButtons[] = { GiftCodeButton, FeedbackButton, SDKButton, SettingsButton };
+	UButton* ValuesButton = SeagullWidgetStyles::MakeTextButton(WidgetTree,TEXT("Player Values"),SeagullColors::Teal,SeagullColors::LightText,16,TEXT("PlayerValuesButton"));
+    ValuesButton->OnClicked.AddDynamic(this,&USeagullMainHub::OnPlayerValuesClicked);
+    UButton* ActionButtons[] = { GiftCodeButton, FeedbackButton, SDKButton, ValuesButton, SettingsButton };
 	for (UButton* ActionButton : ActionButtons)
 	{
 		if (UHorizontalBoxSlot* ActionSlot = ActionRow->AddChildToHorizontalBox(ActionButton))
@@ -529,4 +532,10 @@ void USeagullMainHub::NativeTick(const FGeometry& Geometry, float DeltaTime)
         if (PlayButton) PlayButton->SetIsEnabled(!GM->IsAwaitingRunTicket());
         if (GM->IsAwaitingRunTicket() && SessionText) SessionText->SetText(FText::FromString(GM->GetRunStatus()));
     }
+}
+
+void USeagullMainHub::OnPlayerValuesClicked()
+{
+    APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(),0);
+    if (PC) { auto* Panel = CreateWidget<USeagullPlayerValuesPanel>(PC); if (Panel) Panel->AddToViewport(100); }
 }

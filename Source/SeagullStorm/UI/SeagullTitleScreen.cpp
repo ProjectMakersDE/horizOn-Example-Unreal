@@ -7,6 +7,7 @@
 #include "Horizon/SeagullHorizonManager.h"
 #include "HorizonSubsystem.h"
 #include "Managers/HorizonAuthManager.h"
+#include "HorizonSessionSave.h"
 #include "Blueprint/WidgetTree.h"
 #include "Components/Border.h"
 #include "Components/Button.h"
@@ -170,13 +171,16 @@ void USeagullTitleScreen::OnGuestClicked()
 	// Weak self: the title screen can be removed and GC'd (e.g. a concurrent
 	// session restore switching to the Hub) before the HTTP response lands.
 	TWeakObjectPtr<USeagullTitleScreen> WeakThis(this);
-	HM->SignUpAnonymous(Name, [WeakThis](bool bSuccess)
+	const bool bRestore = UHorizonSessionSave::HasSavedSession();
+    auto Complete = [WeakThis, bRestore](bool bSuccess)
 	{
 		USeagullTitleScreen* Screen = WeakThis.Get();
 		if (!Screen || !Screen->IsInViewport()) return;
-		if (bSuccess) Screen->OnAuthSuccess(true);
+		if (bSuccess) Screen->OnAuthSuccess(!bRestore);
 		else Screen->OnAuthFailure();
-	});
+	};
+    if (bRestore) HM->RestoreSession(Complete);
+    else HM->SignUpAnonymous(Name, Complete);
 }
 
 void USeagullTitleScreen::OnGoogleClicked()
