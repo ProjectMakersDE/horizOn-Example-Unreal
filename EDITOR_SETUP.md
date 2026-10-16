@@ -112,3 +112,28 @@ The bootstrap has executed successfully in the actual 5.8 editor commandlet.
   no email or production write was performed during this refresh.
 - Package and run a standalone build, then commit generated `.uasset`/`.umap`
   files if the native checks succeed. Font/PNG loose-file staging is configured.
+
+## Reproduce the Mac Development package
+
+Use the real Xcode/Metal toolchain and include the explicit `-package` step:
+
+```sh
+"/path/to/UE/Engine/Build/BatchFiles/RunUAT.sh" BuildCookRun \
+  -project="$PWD/SeagullStorm.uproject" -noP4 -platform=Mac \
+  -clientconfig=Development -clientarchitecture=arm64+x64 -editorarchitecture=arm64 \
+  -build -cook -stage -pak -package -archive \
+  -archivedirectory="$PWD/Build/MacQA" -ubtargs=-NoUBA -unattended
+```
+
+`-package` finalizes the self-contained app with its engine/runtime libraries;
+archiving the bare build app alone is insufficient. `-NoUBA` uses the native
+compiler/linker directly and avoids a local build-accelerator link hang. The
+Development receipt stages Unreal's automation report template; Shipping does
+not include that QA template.
+
+Run `Scripts/run_native_acceptance.py --game Build/MacQA/Mac/SeagullStorm.app/Contents/MacOS/SeagullStorm --output /tmp/seagull-package-proof`
+with a fresh output directory, then repeat with `--hello` and a separate output.
+The recorded 2026-10-16 checks built both Mac architectures and executed arm64
+with Metal at 1280×720 and 960×540, including imported assets and fonts. Native
+reports contain the actual tests, their errors/warnings and all HTTP-fixture
+receipts; NullRHI or source-only CI does not replace these rendered checks.

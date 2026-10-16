@@ -22,7 +22,12 @@ Moving feet/legs retain their walk cycle during auto-fire wing/claw attacks.
 asset bootstrap and a rendered standalone editor-game run have passed on macOS
 arm64 with Xcode 26.6 and the Metal Toolchain. Imported maps, sprites, flipbooks,
 materials and audio are committed alongside their original source assets.
-Packaged-build verification is still in progress for this change.
+The universal Mac Development package (arm64+x64) built, cooked and archived
+successfully. Its actual arm64 game/Player-Values and Hello runs passed; the game
+also passed at 960×540. There are 31 rendered package captures. The two game runs
+have one expected deliberate HTTP503 retry warning each, zero errors, and zero
+skips; Hello has zero warnings/errors. The runs use synthetic loopback fixtures,
+not a real Develop or production backend.
 
 ## Start
 
@@ -186,7 +191,10 @@ python3 Scripts/run_native_acceptance.py --editor /path/to/UnrealEditor --output
 python3 Scripts/run_native_acceptance.py --editor /path/to/UnrealEditor --hello --output /tmp/seagull-hello-proof
 ```
 
-Use `--game /path/to/SeagullStorm` for a packaged Development executable, or
+Use `--game /path/to/SeagullStorm` for a packaged Development executable. The
+runner keeps Mac App Sandbox enabled, uses a unique private container subfolder,
+copies its evidence out and removes only that owned subfolder. Add
+`--width 960 --height 540` for the smaller viewport, or
 `--headless` for a separate NullRHI check. Rendered runs capture the actual game
 viewport; NullRHI does not provide visual evidence. The game check covers title,
 practice, movement, cutout assets, pause, XP choice, death, restart, timer/boss
