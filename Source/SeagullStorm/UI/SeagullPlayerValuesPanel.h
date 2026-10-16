@@ -26,6 +26,8 @@ private:
     FHorizonPlayerValuesOffers Offers;
     FString Context;
     int64 Generation = 0;
+    int64 RetryQuotedVersion = -1;
+    FString RetryQuotedOperation;
     bool bBusy = false;
     UFUNCTION() void OnState();
     UFUNCTION() void OnOffers();

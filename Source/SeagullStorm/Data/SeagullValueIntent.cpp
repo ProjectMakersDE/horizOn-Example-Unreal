@@ -9,12 +9,12 @@ bool USeagullValueIntent::IsValidFor(const FString& ApiKey, const FString& User)
     FString Millis, Id; FGuid Guid; int64 Time = 0;
     return !ApiKey.IsEmpty() && !User.IsEmpty() && UserId == User && ProjectHash == Project(ApiKey)
         && OperationId.Split(TEXT(":"), &Millis, &Id) && LexTryParseString(Time, *Millis) && Time > 0 && FGuid::ParseExact(Id, EGuidFormats::DigitsWithHyphens, Guid)
-        && SendCount >= 0 && (Kind == TEXT("purchase") ? !OfferKey.IsEmpty() : Kind == TEXT("adjust") && !ValueKey.IsEmpty() && !Reason.IsEmpty() && Amount != 0 && Amount >= -9007199254740991LL && Amount <= 9007199254740991LL);
+        && SendCount >= 0 && (Kind == TEXT("purchase") ? !OfferKey.IsEmpty() && OfferDefinitionVersion >= 0 : Kind == TEXT("adjust") && !ValueKey.IsEmpty() && !Reason.IsEmpty() && Amount != 0 && Amount >= -9007199254740991LL && Amount <= 9007199254740991LL);
 }
 bool USeagullValueIntent::SamePayload(const USeagullValueIntent* Other) const
 {
     return Other && Other->UserId == UserId && Other->ProjectHash == ProjectHash && Other->Kind == Kind && Other->OfferKey == OfferKey
-        && Other->ValueKey == ValueKey && Other->Reason == Reason && Other->OperationId == OperationId && Other->Amount == Amount;
+        && Other->ValueKey == ValueKey && Other->Reason == Reason && Other->OperationId == OperationId && Other->Amount == Amount && Other->OfferDefinitionVersion == OfferDefinitionVersion;
 }
 USeagullValueIntent* USeagullValueIntent::Load(const FString& ApiKey, const FString& User, bool& bBlocked)
 {
@@ -28,7 +28,9 @@ bool USeagullValueIntent::Persist(const FString& ApiKey) const
 {
     if (!IsValidFor(ApiKey, UserId)) return false;
     bool Blocked; USeagullValueIntent* Old = Load(ApiKey, UserId, Blocked);
-    if (Blocked || Old && (!SamePayload(Old) || SendCount < Old->SendCount)) return false;
+    if (Blocked) return false;
+    // The original is immutable. A retry must never truncate its only recovery copy.
+    if (Old) return SamePayload(Old);
     if (!UGameplayStatics::SaveGameToSlot(const_cast<USeagullValueIntent*>(this), Slot(ApiKey, UserId), 0)) return false;
     USeagullValueIntent* Check = Load(ApiKey, UserId, Blocked);
     return !Blocked && SamePayload(Check) && Check->SendCount == SendCount;

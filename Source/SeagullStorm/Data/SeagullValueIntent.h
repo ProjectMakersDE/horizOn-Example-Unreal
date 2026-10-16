@@ -17,6 +17,7 @@ public:
     UPROPERTY() FString Reason;
     UPROPERTY() FString OperationId;
     UPROPERTY() int64 Amount = 0;
+    UPROPERTY() int64 OfferDefinitionVersion = 0;
     UPROPERTY() int32 SendCount = 0;
     static FString Project(const FString& ApiKey);
     static FString Slot(const FString& ApiKey, const FString& User);

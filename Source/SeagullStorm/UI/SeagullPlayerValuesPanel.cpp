@@ -131,7 +131,7 @@ void USeagullPlayerValuesPanel::OnPurchase()
         const auto* Offer = Data.Offers.FindByPredicate([&](const auto& V) { return V.Key == Key && V.bActive; });
         if (!Offer) { P->Message(TEXT("Choose an active offer key from the current catalog.")); return; }
         P->Pending = NewObject<USeagullValueIntent>(P); P->Pending->ProjectHash = USeagullValueIntent::Project(SDK->GetHttpClient()->GetApiKey()); P->Pending->UserId = SDK->Auth->GetCurrentUser().UserId;
-        P->Pending->Kind = TEXT("purchase"); P->Pending->OfferKey = Key; P->Pending->OperationId = SDK->PlayerValues->CreateOperationId(); P->SendPending(SDK);
+        P->Pending->Kind = TEXT("purchase"); P->Pending->OfferDefinitionVersion = Data.DefinitionVersion; P->Pending->OfferKey = Key; P->Pending->OperationId = SDK->PlayerValues->CreateOperationId(); P->SendPending(SDK);
     }));
 }
 void USeagullPlayerValuesPanel::OnAdjust()
@@ -141,10 +141,33 @@ void USeagullPlayerValuesPanel::OnAdjust()
     FString Raw = AmountInput->GetText().ToString().TrimStartAndEnd(), Key = KeyInput->GetText().ToString().TrimStartAndEnd(); int64 Amount = 0;
     bool Digits = !Raw.IsEmpty(); for (int32 I = Raw.StartsWith(TEXT("-")) ? 1 : 0; I < Raw.Len(); I++) Digits &= Raw[I] >= '0' && Raw[I] <= '9';
     if (!Digits || !LexTryParseString(Amount,*Raw) || Amount == 0 || Amount < -9007199254740991LL || Amount > 9007199254740991LL || Key.IsEmpty() || !SDK->PlayerValues->HasServerClock()) { Message(TEXT("Refresh balances, then enter a safe whole adjustment and configured key.")); return; }
+    if (!SDK->PlayerValues->GetCurrentState().Values.ContainsByPredicate([&](const auto& V) { return V.Key == Key; }))
+    { Message(TEXT("Unknown value key. Refresh balances and choose an existing server key.")); return; }
     Pending = NewObject<USeagullValueIntent>(this); Pending->ProjectHash = USeagullValueIntent::Project(SDK->GetHttpClient()->GetApiKey()); Pending->UserId = SDK->Auth->GetCurrentUser().UserId;
     Pending->Kind = TEXT("adjust"); Pending->ValueKey = Key; Pending->Amount = Amount; Pending->Reason = TEXT("demo"); Pending->OperationId = SDK->PlayerValues->CreateOperationId(); SendPending(SDK);
 }
-void USeagullPlayerValuesPanel::OnRetry() { UHorizonSubsystem* SDK = Begin(); if (!SDK || !LoadPending(SDK)) return; if (Pending) SendPending(SDK); else Message(TEXT("No saved operation for this project/player.")); }
+void USeagullPlayerValuesPanel::OnRetry()
+{
+    UHorizonSubsystem* SDK = Begin(); if (!SDK || !LoadPending(SDK)) return;
+    if (!Pending) { Message(TEXT("No saved operation for this project/player.")); return; }
+    if (Pending->Kind != TEXT("purchase")) { SendPending(SDK); return; }
+    bBusy = true; FString Sent = Context; int64 Epoch = Generation; TWeakObjectPtr<USeagullPlayerValuesPanel> Weak(this);
+    SDK->PlayerValues->GetOffers(Pending->UserId,FOnPlayerValuesOffersComplete::CreateLambda([Weak,Sent,Epoch,SDK](bool Ok,const FHorizonPlayerValuesOffers& Data,const FString& Code,const FString&)
+    {
+        auto* P = Weak.Get(); if (!P || !P->IsCurrent(Sent,Epoch)) return; P->bBusy = false;
+        if (!Ok) { P->Message(Code + TEXT(". Original retained.")); return; }
+        P->DisplayOffers(Data);
+        if (!Data.Offers.ContainsByPredicate([&](const auto& V) { return V.Key == P->Pending->OfferKey && V.bActive; }))
+        { P->Message(TEXT("Original offer is unavailable. Reconcile the saved operation before another purchase.")); return; }
+        if (Data.DefinitionVersion != P->Pending->OfferDefinitionVersion &&
+            (P->RetryQuotedVersion != Data.DefinitionVersion || P->RetryQuotedOperation != P->Pending->OperationId))
+        {
+            P->RetryQuotedVersion = Data.DefinitionVersion; P->RetryQuotedOperation = P->Pending->OperationId;
+            P->Message(TEXT("Retry price/catalog changed. Review current terms, then click Retry original again to confirm. The original ID is preserved.")); return;
+        }
+        P->RetryQuotedVersion = -1; P->RetryQuotedOperation.Empty(); P->SendPending(SDK);
+    }));
+}
 void USeagullPlayerValuesPanel::SendPending(UHorizonSubsystem* SDK)
 {
     FString Project = SDK->GetHttpClient()->GetApiKey();

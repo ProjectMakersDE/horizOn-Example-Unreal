@@ -39,7 +39,7 @@ struct FRun
     double Started = Since;
     FVector Before = FVector::ZeroVector;
     TWeakObjectPtr<USeagullPlayerValuesPanel> Panel;
-    bool bAuthDone = false, bAuthOk = false, bCapturing = false;
+    bool bAuthDone = false, bAuthOk = false, bCapturing = false, bBossPositioned = false;
     void Next() { Step++; Since = FPlatformTime::Seconds(); }
     bool Capture(const TCHAR* Name)
     {
@@ -130,6 +130,8 @@ public:
             if (!GS->bBossSpawned || Elapsed<1) return false;
             { TActorIterator<ASeagullEnemy_Boss> Boss(World);
               if (!Boss) return Fail(TEXT("Survival timer did not spawn the octopus"));
+              // Keep the spawned actor visible for the deterministic render proof.
+              if (!Run->bBossPositioned) { Boss->SetActorLocation(PC->GetPawn()->GetActorLocation()+FVector(120,0,0)); Run->bBossPositioned=true; return false; }
               if (!Run->Capture(TEXT("13-boss.png"))) return false;
               Boss->TakeDamageAmount(100000); }
             Run->Next(); break;

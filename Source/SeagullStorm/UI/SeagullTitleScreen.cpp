@@ -171,7 +171,11 @@ void USeagullTitleScreen::OnGuestClicked()
 	// Weak self: the title screen can be removed and GC'd (e.g. a concurrent
 	// session restore switching to the Hub) before the HTTP response lands.
 	TWeakObjectPtr<USeagullTitleScreen> WeakThis(this);
-	const bool bRestore = UHorizonSessionSave::HasSavedSession();
+	UHorizonSessionSave* Saved = UHorizonSessionSave::LoadFromDisk();
+    // A chosen guest login may leave a registered email account; its credentials
+    // remain recoverable. Anonymous or corrupt saved identities must be restored.
+    const bool bRestore = UHorizonSessionSave::HasSavedSession() &&
+        (!Saved || Saved->CachedUserId.IsEmpty() || Saved->bIsAnonymous || !Saved->CachedAnonymousToken.IsEmpty());
     auto Complete = [WeakThis, bRestore](bool bSuccess)
 	{
 		USeagullTitleScreen* Screen = WeakThis.Get();
