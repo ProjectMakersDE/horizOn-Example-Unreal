@@ -6,6 +6,8 @@
 #include "Core/SeagullPlayerController.h"
 #include "Player/SeagullPlayerPawn.h"
 #include "Horizon/SeagullHorizonManager.h"
+#include "Horizon/SeagullStatisticsSession.h"
+#include "UI/SeagullStatisticsPanel.h"
 #include "Audio/SeagullAudioManager.h"
 #include "Enemies/SeagullEnemySpawner.h"
 #include "Map/SeagullMapGenerator.h"
@@ -224,6 +226,13 @@ void ASeagullStormGameMode::SwitchToScreen(ESeagullGameScreen NewScreen)
 void ASeagullStormGameMode::StartRun()
 {
     if (bAwaitingRunTicket || CurrentScreen == ESeagullGameScreen::Run) return;
+    USeagullGameInstance* PendingGI=GetSeagullGameInstance(); auto* PendingHM=GetHorizonManager();
+    if (PendingGI && !PendingGI->bPracticeMode && PendingHM && PendingHM->IsSignedIn() && !PendingGI->GetStatisticsSession()->CanStartOnlineRound())
+    {
+        RunStatus=PendingGI->GetStatisticsSession()->GetStatus();
+        if (auto* PC=Cast<APlayerController>(UGameplayStatics::GetPlayerController(GetWorld(),0))) if (auto* Panel=CreateWidget<USeagullStatisticsPanel>(PC)) Panel->AddToViewport(100);
+        return;
+    }
     CachedGameOverWidget = nullptr;
     ScoreStatus.Empty();
     CleanupRunActors();
@@ -369,6 +378,7 @@ void ASeagullStormGameMode::EndRun(bool bPlayerDied)
 
 		if (HM)
 		{
+            if (!bRunPractice && !GI->bPracticeMode && HM->IsSignedIn()) GI->GetStatisticsSession()->RecordRound(GS->RunStats.Kills,GS->CurrentScore);
 			SubmitRunScore(HM, GS->CurrentScore, GS->CurrentWave, CoinsEarned, GS->RunStats.Duration);
 
 			const uint64 SaveGeneration = GI->SessionGeneration;

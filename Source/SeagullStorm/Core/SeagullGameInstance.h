@@ -9,6 +9,7 @@
 class USeagullConfigCache;
 class USeagullHorizonManager;
 class UHorizonSubsystem;
+class USeagullStatisticsSession;
 
 UCLASS()
 class USeagullGameInstance : public UGameInstance
@@ -21,6 +22,7 @@ public:
 	UHorizonSubsystem* GetHorizonSubsystem() const;
 	USeagullHorizonManager* GetHorizonManager();
 	USeagullConfigCache* GetConfigCache();
+    USeagullStatisticsSession* GetStatisticsSession();
 
 	UPROPERTY()
 	FSeagullSaveData SaveData;
@@ -44,6 +46,7 @@ public:
 	int32 ConsecutiveWave1Deaths = 0;
 
 private:
+    UPROPERTY() USeagullStatisticsSession* StatisticsSession=nullptr;
 	UPROPERTY()
 	USeagullHorizonManager* HorizonManager = nullptr;
 

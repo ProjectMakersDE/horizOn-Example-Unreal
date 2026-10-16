@@ -152,6 +152,22 @@ Enemy, weapon, upgrade and card keys are defined in
 `wave_N`; configure those stages before expecting stage-based validation to pass.
 The example never creates backend boards, rules, templates, cosmetics or data.
 
+## Player statistics
+
+Create these definitions in the project's Dashboard before using the statistics demonstration:
+
+| Key | Mode | Reset |
+| --- | --- | --- |
+| `kills` | `sum` | `none` |
+| `rounds` | `sum` | `none` |
+| `best_score` | `max` | `none` |
+
+Each completed online round sends its actual kills, one round and its final score in one atomic statistics batch. The Statistics button opens the complete server snapshot with explicit Refresh and Retry Original actions. The game persists an unsent draft before loading server time, then assigns one operation ID before the first POST. A restart, timeout, conflict or `OPERATION_EXPIRED` retains the original ID and payload. An unresolved original blocks another online round; local Practice remains available. Reads and startup never book saved round batches.
+
+`ASeagullStatisticsHelloActor` provides a standalone Hello variant on a level using `GameModeBase`. It connects/restores or signs up once, submits the existing example score and displays the statistics panel. Its demonstration button explicitly submits `kills=3`, `rounds=1`, `best_score=1200`. It never posts a saved statistics batch merely because the level starts.
+
+The game facade uses the official SDK's example identity guard. It preserves a project-scoped guest and a durable unknown-signup marker before HTTP; a failed restore never falls back to a new guest. Explicit Guest selects the protected guest ahead of an email cache. Unvalidated legacy credentials are backed up without assigning them to the current project. All embedded plugin files remain byte-identical to the official commit in `SDK-SOURCE.json`.
+
 ## Verification
 
 Engine-independent checks:
@@ -169,8 +185,8 @@ array boundary. The SDK runner loads fixtures from the exact official commit in
 `SDK-SOURCE.json`, including statistics and player-value contracts. The session-boundary check compiles
 the real facade methods against delayed SDK boundaries and verifies auth/practice/
 sign-out races, stale config/save reads, preload purchase gates, ordered owner-bound
-writes, ticket serialization and synchronous/stale evidence events. All passed on
-October 2, 2026. These checks make no backend calls and do not compile Unreal game
+writes, ticket serialization and synchronous/stale evidence events. The original checks passed on
+October 2, 2026; the TASK-1005 changes are verified separately by the current CI and native reports. These checks make no backend calls and do not compile Unreal game
 modules, reflection or Slate widgets.
 
 The October 3 cutout check compiles the production pose math and checks the
@@ -189,6 +205,8 @@ real API key. Use a fresh output directory for each run:
 ```sh
 python3 Scripts/run_native_acceptance.py --editor /path/to/UnrealEditor --output /tmp/seagull-game-proof
 python3 Scripts/run_native_acceptance.py --editor /path/to/UnrealEditor --hello --output /tmp/seagull-hello-proof
+python3 Scripts/run_native_acceptance.py --editor /path/to/UnrealEditor --statistics --port 18813 --output /tmp/seagull-statistics-proof
+python3 Scripts/run_native_acceptance.py --editor /path/to/UnrealEditor --statistics --hello --port 18813 --output /tmp/seagull-statistics-hello-proof
 ```
 
 Use `--game /path/to/SeagullStorm` for a packaged Development executable. The

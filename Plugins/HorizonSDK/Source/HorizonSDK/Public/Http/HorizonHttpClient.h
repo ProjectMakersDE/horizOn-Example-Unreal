@@ -37,6 +37,8 @@ public:
 	bool IsConnected() const;
 	FString GetActiveHost() const;
 	FString GetApiKey() const { return ApiKey; }
+	/** For feature cache scopes that must distinguish leave-and-return identity changes. */
+	uint64 GetRequestContextEpoch() const { return TransportContextEpoch + SessionContextEpoch; }
 	EHorizonConnectionStatus GetConnectionStatus() const;
 
 	/** Set the session token used for authenticated requests. */
@@ -61,6 +63,9 @@ private:
 	FString ActiveHost;
 	FString SessionToken;
 	FString ApiKey;
+	/** Monotone identity lifecycle, so A -> B -> A never revives an old request. */
+	uint64 TransportContextEpoch = 0;
+	uint64 SessionContextEpoch = 0;
 	EHorizonConnectionStatus ConnectionStatus = EHorizonConnectionStatus::Disconnected;
 	int32 MaxRetryAttempts = 3;
 	float RetryDelaySeconds = 1.0f;
@@ -76,7 +81,8 @@ private:
 		int32 RetryCount,
 		FOnHttpResponse OnComplete,
 		const FString& AcceptContentType = TEXT(""),
-		const TMap<FString, FString>& ExtraHeaders = TMap<FString, FString>()
+		const TMap<FString, FString>& ExtraHeaders = TMap<FString, FString>(),
+        bool bAllowRetry = true
 	);
 
 	/** Build and apply standard headers to a request. */

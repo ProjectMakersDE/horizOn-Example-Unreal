@@ -9,6 +9,8 @@
 #include "Models/HorizonNewsEntry.h"
 #include "SeagullHorizonManager.generated.h"
 
+class UHorizonExampleIdentity;
+
 UCLASS()
 class USeagullHorizonManager : public UObject
 {
@@ -25,11 +27,12 @@ public:
 	void SignUpAnonymous(const FString& Name, TFunction<void(bool)> Callback);
 	void SignInEmail(const FString& Email, const FString& Password, TFunction<void(bool)> Callback);
 	void SignUpEmail(const FString& Email, const FString& Password, const FString& Name, TFunction<void(bool)> Callback);
-	void RestoreSession(TFunction<void(bool)> Callback);
+	void RestoreSession(TFunction<void(bool)> Callback,bool GuestOnly=false);
 	void SignInWithApple(TFunction<void(bool)> Callback);
 	bool IsAuthenticating() const { return bAuthRequestInFlight; }
 	void SignOut();
 	bool IsSignedIn() const;
+    bool HasProtectedGuestIdentity() const;
 	FString GetDisplayName() const;
 	FString GetUserId() const;
 
@@ -102,6 +105,9 @@ public:
 	static FString DescribeScoreError(const FString& ErrorCode);
 
 private:
+    UPROPERTY() UHorizonExampleIdentity* AuthOriginal=nullptr;
+    FString AuthProject;
+    bool bGuestSignupSent=false,bRestoringIdentity=false;
 	UPROPERTY()
 	UHorizonSubsystem* Subsystem = nullptr;
 	FString EvidenceStatus = TEXT("No evidence requested");

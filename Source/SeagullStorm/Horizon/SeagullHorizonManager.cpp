@@ -1,5 +1,6 @@
 #include "Horizon/SeagullHorizonManager.h"
 #include "SeagullStorm.h"
+#include "Examples/HorizonExampleIdentity.h"
 #include "Core/SeagullGameInstance.h"
 #include "Data/SeagullConfigCache.h"
 #include "Managers/HorizonLocalizationManager.h"
@@ -51,6 +52,8 @@ bool USeagullHorizonManager::BeginAuthRequest(uint64& Generation, const TFunctio
 		if (Callback) Callback(false);
 		return false;
 	}
+    AuthProject=UHorizonExampleIdentity::ProjectKey(Subsystem); AuthOriginal=nullptr; bGuestSignupSent=bRestoringIdentity=false;
+    if (!UHorizonExampleIdentity::CaptureBeforeAuth(Subsystem,AuthOriginal)) { if (Callback) Callback(false); return false; }
 	Generation = GI->SessionGeneration;
 	bAuthRequestInFlight = true;
 	return true;
@@ -58,6 +61,8 @@ bool USeagullHorizonManager::BeginAuthRequest(uint64& Generation, const TFunctio
 
 void USeagullHorizonManager::CompleteAuthRequest(uint64 Generation, bool bSuccess, const TFunction<void(bool)>& Callback)
 {
+    bSuccess=UHorizonExampleIdentity::AfterAuth(Subsystem,AuthProject,AuthOriginal,bGuestSignupSent,bRestoringIdentity,bSuccess);
+    AuthOriginal=nullptr;
 	// Sign-out may happen while the SDK still owns an HTTP authentication request.
 	// Clear its late result before opening the gate for another authentication.
 	if (bSignOutAfterAuth)
@@ -76,11 +81,13 @@ void USeagullHorizonManager::SignUpAnonymous(const FString& Name, TFunction<void
 	if (!BeginAuthRequest(Generation, Callback)) return;
 	TWeakObjectPtr<USeagullHorizonManager> Weak(this);
 
+    if (!UHorizonExampleIdentity::BeforeSignup(Subsystem,AuthProject)) { CompleteAuthRequest(Generation,false,Callback); return; }
+	bGuestSignupSent=true;
 	Subsystem->Auth->SignUpAnonymous(Name, FOnAuthComplete::CreateLambda(
 		[Weak, Generation, Callback](bool bSuccess)
 		{
 			if (USeagullHorizonManager* Self = Weak.Get()) Self->CompleteAuthRequest(Generation, bSuccess, Callback);
-		}));
+		}),TEXT(""),FOnAnonymousIdentityIssued::CreateLambda([](const FString& Key,const FHorizonUserData& Issued) { return UHorizonExampleIdentity::RecordIssuedSignup(Key,Issued); }));
 }
 
 void USeagullHorizonManager::SignInEmail(const FString& Email, const FString& Password, TFunction<void(bool)> Callback)
@@ -109,12 +116,14 @@ void USeagullHorizonManager::SignUpEmail(const FString& Email, const FString& Pa
 		}));
 }
 
-void USeagullHorizonManager::RestoreSession(TFunction<void(bool)> Callback)
+void USeagullHorizonManager::RestoreSession(TFunction<void(bool)> Callback,bool GuestOnly)
 {
 	uint64 Generation;
 	if (!BeginAuthRequest(Generation, Callback)) return;
 	TWeakObjectPtr<USeagullHorizonManager> Weak(this);
 
+    bRestoringIdentity=true;
+    if (!UHorizonExampleIdentity::BeforeRestore(Subsystem,AuthProject,GuestOnly,AuthOriginal)) { CompleteAuthRequest(Generation,false,Callback); return; }
 	Subsystem->Auth->RestoreAnonymousSession(FOnAuthComplete::CreateLambda(
 		[Weak, Generation, Callback](bool bSuccess)
 		{
@@ -143,6 +152,9 @@ void USeagullHorizonManager::SignOut()
 		Subsystem->Auth->SignOut();
 	}
 }
+
+bool USeagullHorizonManager::HasProtectedGuestIdentity() const
+{ return UHorizonExampleIdentity::ShouldRestoreGuest(Subsystem); }
 
 bool USeagullHorizonManager::IsSignedIn() const
 {
