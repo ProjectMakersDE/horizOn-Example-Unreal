@@ -158,20 +158,32 @@ public:
         case 17:
             if (SDK->PlayerValues->LastErrorCode!=TEXT("TEMPORARY") || Elapsed<2) return false;
             { bool Blocked; auto* Intent=USeagullValueIntent::Load(SDK->GetHttpClient()->GetApiKey(),SDK->Auth->GetCurrentUser().UserId,Blocked);
-              if (!Intent || Blocked) return Fail(TEXT("Lost response did not retain original operation")); }
+              if (!Intent || Blocked) return Fail(TEXT("Lost response did not retain original operation"));
+              const auto Project=SDK->GetHttpClient()->GetApiKey(); Intent->SendCount++;
+              if (!Intent->Persist(Project)) return Fail(TEXT("Retry did not preserve matching original"));
+              auto* Original=USeagullValueIntent::Load(Project,Intent->UserId,Blocked);
+              if (!Original || Blocked || Original->SendCount!=1) return Fail(TEXT("Retry overwrote immutable original file"));
+              Intent->OfferKey=TEXT("different-payload");
+              if (Intent->Persist(Project)) return Fail(TEXT("A conflicting payload replaced the original")); }
             if (!Run->Capture(TEXT("10-uncertain-original-retained.png"))) return false; Invoke(Run->Panel.Get(),TEXT("OnRetry")); Run->Next(); break;
         case 18:
+            if (SDK->PlayerValues->GetCurrentOffers().DefinitionVersion!=3 || Elapsed<1) return false;
+            { bool Blocked; auto* Intent=USeagullValueIntent::Load(SDK->GetHttpClient()->GetApiKey(),SDK->Auth->GetCurrentUser().UserId,Blocked);
+              if (!Intent || Blocked || Intent->SendCount!=1 || Intent->OfferDefinitionVersion!=2) return Fail(TEXT("Retry repricing changed the original intent")); }
+            if (!Run->Capture(TEXT("16-retry-price-confirmation.png"))) return false;
+            Invoke(Run->Panel.Get(),TEXT("OnRetry")); Run->Next(); break;
+        case 19:
             if (Balance(SDK,TEXT("energy"))!=10 || !SDK->PlayerValues->GetCurrentState().Operation.bReplayed) return false;
             if (Balance(SDK,TEXT("gold"))!=93) return Fail(TEXT("Replay charged or credited twice"));
             if (!Run->Capture(TEXT("11-original-replay.png"))) return false;
             CastChecked<UEditableTextBox>(Run->Panel->GetWidgetFromName(TEXT("ValuesAdjustKey")))->SetText(FText::FromString(TEXT("energy")));
             CastChecked<UEditableTextBox>(Run->Panel->GetWidgetFromName(TEXT("ValuesAdjustAmount")))->SetText(FText::FromString(TEXT("-1")));
             Invoke(Run->Panel.Get(),TEXT("OnAdjust")); Run->Next(); break;
-        case 19:
+        case 20:
             if (Balance(SDK,TEXT("energy"))!=9 || Elapsed<1) return false;
             { bool Blocked; if (USeagullValueIntent::Load(SDK->GetHttpClient()->GetApiKey(),SDK->Auth->GetCurrentUser().UserId,Blocked) || Blocked) return Fail(TEXT("Confirmed original operation not removed")); }
             if (!Run->Capture(TEXT("12-adjustment.png"))) return false; Run->Next(); break;
-        case 20:
+        case 21:
             if (Elapsed<1) return false;
             Run->Panel->RemoveFromParent(); SDK->Auth->SignOut(); Run->Test->AddInfo(TEXT("Native title/practice/movement/cutout/pause/choice/death/restart/boss victory and real loopback auth/offers/price confirmation/uncertain retry/replay/adjust paths passed.")); return true;
         }

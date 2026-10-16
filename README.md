@@ -190,7 +190,7 @@ Use `--game /path/to/SeagullStorm` for a packaged Development executable, or
 `--headless` for a separate NullRHI check. Rendered runs capture the actual game
 viewport; NullRHI does not provide visual evidence. The game check covers title,
 practice, movement, cutout assets, pause, XP choice, death, restart, timer/boss
-victory and the Player Values flow. The Hello check spawns the unchanged official
+victory (accelerated timer and deterministic boss damage/position for QA) and the Player Values flow. The Hello check spawns the unchanged official
 `AHelloHorizonActor` in a base GameMode and verifies connect, anonymous signup,
 score submission and its visible completion. These are loopback integration
 proofs, separate from real Develop or production service acceptance.
@@ -202,17 +202,24 @@ local. Online balances never use local progression coins and are replaced from
 authorized server state, with no client-side delta credit. Refresh offers before
 purchasing; a changed definition/price requires another explicit confirmation.
 
-A purchase/adjustment first persists its exact payload and operation ID in a
+A purchase/adjustment first persists its exact payload, quoted catalog version and operation ID in a
 project/player-bound SaveGame slot. Regional hosts share that stable identity.
 An unknown result, timeout or refusal keeps the original intent; **Retry original**
-resends that same ID and payload. No new operation can overtake it. Corrupt or
+refreshes current offers and resends that same ID and payload. Changed catalog
+terms require another explicit confirmation. The server currently books the offer
+configured when it handles the write; the API has no atomic quoted-version
+precondition, so an admin change between refresh and POST can still change its
+price. No new operation can overtake the saved original. Corrupt or
 conflicting saved data blocks a new write and is retained for recovery. Only a
 confirmed successful original operation removes its saved intent. Session,
 project, host, practice and widget generations fence late callbacks.
 
 The native fixture deliberately commits the purchase and loses both initial
 receipts. Explicit retry receives the replay: gold ends at 93 and energy at 10,
-then a separate -1 adjustment ends at 9. Exactly one purchase ID is used across
+The retry catalog then changes to a cost of 9 and requires fresh confirmation;
+the committed original still replays its original cost of 7. A separate -1
+adjustment ends at 9. The immutable saved file and conflicting-payload guard are
+checked before retry. Exactly one purchase ID is used across
 all three transport attempts.
 
 ## Assets and license

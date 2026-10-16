@@ -11,9 +11,10 @@ class State:
     purchase_id, ready = None, False
     scores = 0
     calls = []
+def version(): return 1 if State.offers<2 else 2 if State.offers<4 else 3
 def now(): return datetime.now(timezone.utc).isoformat(timespec='milliseconds').replace('+00:00','Z')
 def snapshot(operation=None):
-    return dict(userId=USER,day='2026-10-16',revision=State.revision,definitionVersion=1 if State.offers<2 else 2,
+    return dict(userId=USER,day='2026-10-16',revision=State.revision,definitionVersion=version(),
         values=[dict(key=k,balance=v,earnedToday=0,dailyCap=None) for k,v in [('gold',State.gold),('energy',State.energy)]],
         operationWindow=dict(serverTime=now(),oldestAcceptedAt='2026-09-16T00:00:00Z'),operation=operation)
 class Handler(BaseHTTPRequestHandler):
@@ -37,8 +38,8 @@ class Handler(BaseHTTPRequestHandler):
             if self.headers.get('X-API-Key')!='task1004-example-fixture' or self.headers.get('Authorization')!='Bearer task1004-fixture-session':
                 return self.reply(403,dict(code='SESSION_FORBIDDEN',message='Fixture credentials required'))
             if route.endswith('/offers'):
-                State.offers+=1;version=1 if State.offers==1 else 2
-                return self.reply(200,dict(definitionVersion=version,serverTime=now(),definitions=[],offers=[dict(key='energy-pack',name='Energy',active=True,purchasesPerDay=None,costs=[dict(key='gold',amount=5 if version==1 else 7)],rewards=[dict(key='energy',amount=10)])]))
+                State.offers+=1;catalog=version()
+                return self.reply(200,dict(definitionVersion=catalog,serverTime=now(),definitions=[],offers=[dict(key='energy-pack',name='Energy',active=True,purchasesPerDay=None,costs=[dict(key='gold',amount=5 if catalog==1 else 7 if catalog==2 else 9)],rewards=[dict(key='energy',amount=10)])]))
             if route.endswith('/purchase'):
                 State.purchases+=1;op=body.get('operationId')
                 if body.get('userId')!=USER or body.get('offerKey')!='energy-pack' or not op:

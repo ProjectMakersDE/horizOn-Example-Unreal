@@ -58,7 +58,7 @@ def main():
     else:
         assert proof['scores']==0 and proof['purchases']==3 and proof['adjustments']==1 and proof['gold']==93 and proof['energy']==9
     if not args.headless:
-        names=['15-hello.png'] if args.hello else [f'{n:02}-' for n in range(1,15)]
+        names=['15-hello.png'] if args.hello else [f'{n:02}-' for n in range(1,15)]+['16-']
         for name in names:
             matches=list(captures.glob(name if args.hello else name+'*.png'))
             if len(matches)!=1: raise RuntimeError('Native screenshot absent or ambiguous: '+name)
