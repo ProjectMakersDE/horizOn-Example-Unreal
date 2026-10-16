@@ -1,4 +1,6 @@
 #include "Core/SeagullStormGameMode.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Parse.h"
 #include "Core/SeagullGameInstance.h"
 #include "Core/SeagullStormGameState.h"
 #include "Core/SeagullPlayerController.h"
@@ -45,12 +47,6 @@ void ASeagullStormGameMode::BeginPlay()
 	{
 		HM->ConnectToServer();
 
-		// Start crash capture once at app launch
-		if (!bCrashCaptureStarted)
-		{
-			HM->StartCrashCapture();
-			bCrashCaptureStarted = true;
-		}
 	}
 
 	SwitchToScreen(ESeagullGameScreen::Title);
@@ -87,6 +83,20 @@ void ASeagullStormGameMode::BeginPlay()
 void ASeagullStormGameMode::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+    // Register diagnostics only once the asynchronous host selection has completed.
+    if (!bCrashCaptureStarted)
+    {
+        USeagullHorizonManager* HM = GetHorizonManager();
+        if (HM && HM->IsConnected())
+        {
+#if WITH_DEV_AUTOMATION_TESTS
+            FString Fixture;
+            if (!FParse::Value(FCommandLine::Get(), TEXT("SeagullFixture="), Fixture))
+#endif
+                HM->StartCrashCapture();
+            bCrashCaptureStarted = true;
+        }
+    }
 
 	if (CurrentScreen == ESeagullGameScreen::Run)
 	{

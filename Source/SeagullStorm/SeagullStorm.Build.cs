@@ -23,6 +23,10 @@ public class SeagullStorm : ModuleRules
             "JsonUtilities"
         });
 
+        // Development automation exports real JSON reports from packaged clients.
+        if (Target.Configuration != UnrealTargetConfiguration.Shipping)
+            RuntimeDependencies.Add("$(EngineDir)/Content/Automation/Report-Template.html", StagedFileType.NonUFS);
+
         // Official SDK embeds tickets, server-owned state and evidence upload.
         PublicDefinitions.Add("HORIZON_WITH_VALIDATED_ACTIONS=1");
     }

@@ -4,6 +4,9 @@ import argparse
 import json
 from pathlib import Path
 import shutil
+import plistlib
+import re
+import sys
 import subprocess
 import time
 import uuid
@@ -19,14 +22,25 @@ def main():
     args=parser.parse_args();args.output=args.output.resolve();args.output.mkdir(parents=True,exist_ok=True)
     ready=args.output/'fixture.ready';result=args.output/'fixture.json';report=args.output/'report'
     if result.exists() or report.exists(): raise SystemExit('Use a fresh output directory to prevent stale evidence')
-    user_dir=ROOT/'Saved'/('acceptance-'+uuid.uuid4().hex)
+    run_id=uuid.uuid4().hex
+    sandbox=None
+    if args.game and sys.platform=='darwin':
+        app=next((p for p in args.game.resolve().parents if p.suffix=='.app'),None)
+        if app:
+            identifier=plistlib.loads((app/'Contents/Info.plist').read_bytes())['CFBundleIdentifier']
+            if not re.fullmatch(r'[A-Za-z0-9_.-]+',identifier): raise RuntimeError('Invalid bundle identity')
+            sandbox=Path.home()/'Library/Containers'/identifier/'Data/tmp'/('horizon-acceptance-'+run_id)
+            sandbox.mkdir(parents=True,exist_ok=False)
+    native_output=sandbox or args.output
+    report=native_output/'report'
+    user_dir=native_output/'user' if sandbox else ROOT/'Saved'/('acceptance-'+run_id)
     test='Seagull.Acceptance.'+('HelloHorizon' if args.hello else 'GameAndPlayerValues')
     command=[str(args.editor or args.game)]
     if args.editor: command += [str(ROOT/'SeagullStorm.uproject'),'-game']
     if args.hello: command += ['/Game/Maps/MainMap?game=/Script/Engine.GameModeBase']
     command += ['-windowed',f'-ResX={args.width}',f'-ResY={args.height}',f'-SeagullFixture=http://127.0.0.1:{args.port}',f'-UserDir={user_dir}',f'-ExecCmds=Automation RunTests {test}','-TestExit=Automation Test Queue Empty',f'-ReportExportPath={report}','-unattended','-NoSplash','-NoEpicPortal','-nosound','-log']
     if args.headless: command += ['-nullrhi']
-    captures=args.output/'screenshots';captures.mkdir(exist_ok=True)
+    captures=native_output/'screenshots';captures.mkdir(exist_ok=True)
     command += [f'-SeagullCaptureDir={captures}']
     process=None
     with (args.output/'fixture.log').open('w') as fixture_log,(args.output/'launcher.log').open('w') as engine_log:
@@ -51,6 +65,12 @@ def main():
             ready.unlink(missing_ok=True)
             logs=user_dir/'Saved/Logs'
             if logs.is_dir(): shutil.copytree(logs,args.output/'engine-logs',dirs_exist_ok=True)
+            if sandbox:
+                for name in ('report','screenshots','user'):
+                    source=sandbox/name
+                    if source.is_dir(): shutil.copytree(source,args.output/name,dirs_exist_ok=True)
+                shutil.rmtree(sandbox)
+                report=args.output/'report';captures=args.output/'screenshots'
     proof=json.loads(result.read_text())
     if args.hello:
         assert proof['scores']==1 and proof['purchases']==0 and proof['adjustments']==0
