@@ -17,6 +17,7 @@ def main():
     engine=parser.add_mutually_exclusive_group(required=True)
     engine.add_argument('--editor',type=Path);engine.add_argument('--game',type=Path)
     parser.add_argument('--output',type=Path,required=True);parser.add_argument('--port',type=int,default=18814)
+    parser.add_argument('--statistics',action='store_true')
     parser.add_argument('--headless',action='store_true');parser.add_argument('--hello',action='store_true')
     parser.add_argument('--width',type=int,default=1280);parser.add_argument('--height',type=int,default=720)
     args=parser.parse_args();args.output=args.output.resolve();args.output.mkdir(parents=True,exist_ok=True)
@@ -34,7 +35,7 @@ def main():
     native_output=sandbox or args.output
     report=native_output/'report'
     user_dir=native_output/'user' if sandbox else ROOT/'Saved'/('acceptance-'+run_id)
-    test='Seagull.Acceptance.'+('HelloHorizon' if args.hello else 'GameAndPlayerValues')
+    test='Seagull.Acceptance.'+(('HelloStatistics' if args.hello else 'StatisticsRound') if args.statistics else ('HelloHorizon' if args.hello else 'GameAndPlayerValues'))
     command=[str(args.editor or args.game)]
     if args.editor: command += [str(ROOT/'SeagullStorm.uproject'),'-game']
     if args.hello: command += ['/Game/Maps/MainMap?game=/Script/Engine.GameModeBase']
@@ -44,7 +45,9 @@ def main():
     command += [f'-SeagullCaptureDir={captures}']
     process=None
     with (args.output/'fixture.log').open('w') as fixture_log,(args.output/'launcher.log').open('w') as engine_log:
-        fixture=subprocess.Popen(['python3',str(ROOT/'Scripts/player_values_fixture.py'),'--port',str(args.port),'--ready',str(ready),'--result',str(result)],cwd=ROOT,stdout=fixture_log,stderr=subprocess.STDOUT)
+        fixture_args=['python3',str(ROOT/('Scripts/statistics_fixture.py' if args.statistics else 'Scripts/player_values_fixture.py')),'--port',str(args.port),'--ready',str(ready),'--result',str(result)]
+        if args.statistics and args.hello:fixture_args.append('--hello')
+        fixture=subprocess.Popen(fixture_args,cwd=ROOT,stdout=fixture_log,stderr=subprocess.STDOUT)
         try:
             deadline=time.monotonic()+10
             while not ready.exists():
@@ -53,7 +56,7 @@ def main():
                 time.sleep(.1)
             process=subprocess.Popen(command,cwd=ROOT,stdout=engine_log,stderr=subprocess.STDOUT)
             code=process.wait(timeout=300)
-            if not (report/'index.json').is_file(): raise RuntimeError('Native report absent; launcher exit alone is insufficient')
+            if not (report/'index.json').is_file(): raise RuntimeError(f'Native report absent (launcher exit {code}); launcher exit alone is insufficient')
             summary=json.loads((report/'index.json').read_text(encoding='utf-8-sig'))
             if code or summary.get('failed',0) or not summary.get('tests') or any(t.get('state')!='Success' or t.get('errors') for t in summary['tests']): raise RuntimeError('Native automation failed')
         finally:
@@ -72,15 +75,22 @@ def main():
                 shutil.rmtree(sandbox)
                 report=args.output/'report';captures=args.output/'screenshots'
     proof=json.loads(result.read_text())
-    if args.hello:
+    if args.statistics:
+        assert not proof['failure'] and proof['signup']==1 and proof['scores']==(1 if args.hello else 2) and proof['revision']==1
+        assert proof['values']==dict(kills=3 if args.hello else 2,rounds=1,best_score=1200 if args.hello else 10)
+        assert len(proof['batches'])==(1 if args.hello else 5) and proof['gets']==(2 if args.hello else 6)
+        if not args.hello:
+            assert proof['batches'][0]==proof['batches'][1]==proof['batches'][2]
+            assert proof['batches'][3]==proof['batches'][4] and proof['batches'][0]['operationId']!=proof['batches'][3]['operationId']
+    elif args.hello:
         assert proof['scores']==1 and proof['purchases']==0 and proof['adjustments']==0
         assert [c['route'] for c in proof['calls']]==['/actuator/health','/api/v1/app/user-management/signup','/api/v1/app/leaderboard/submit']
     else:
         assert proof['scores']==0 and proof['purchases']==3 and proof['adjustments']==1 and proof['gold']==93 and proof['energy']==9
     if not args.headless:
-        names=['15-hello.png'] if args.hello else [f'{n:02}-' for n in range(1,15)]+['16-']
+        names=(['20-statistics-hello.png'] if args.hello else ['17-statistics-original.png','18-statistics-snapshot.png','19-statistics-replay.png','21-statistics-expired.png']) if args.statistics else ['15-hello.png'] if args.hello else [f'{n:02}-' for n in range(1,15)]+['16-']
         for name in names:
-            matches=list(captures.glob(name if args.hello else name+'*.png'))
+            matches=list(captures.glob(name if args.hello or args.statistics else name+'*.png'))
             if len(matches)!=1: raise RuntimeError('Native screenshot absent or ambiguous: '+name)
     print(json.dumps(dict(passed=True,test=test,report=str(report),fixtureRequests=len(proof['calls']),userDir=str(user_dir),headless=args.headless)))
 if __name__=='__main__': main()

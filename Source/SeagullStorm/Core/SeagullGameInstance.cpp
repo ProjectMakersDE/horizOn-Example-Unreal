@@ -1,5 +1,6 @@
 #include "Core/SeagullGameInstance.h"
 #include "Horizon/SeagullHorizonManager.h"
+#include "Horizon/SeagullStatisticsSession.h"
 #include "Data/SeagullConfigCache.h"
 #include "HorizonSubsystem.h"
 #include "HorizonConfig.h"
@@ -108,4 +109,10 @@ void USeagullGameInstance::PersistPracticeSave()
     const FString Directory = FPaths::ProjectSavedDir() / TEXT("SeagullStorm");
     IFileManager::Get().MakeDirectory(*Directory, true);
     FFileHelper::SaveStringToFile(SaveData.ToJsonString(), *(Directory / TEXT("practice.json")), FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM);
+}
+
+USeagullStatisticsSession* USeagullGameInstance::GetStatisticsSession()
+{
+    if (!StatisticsSession) { StatisticsSession=NewObject<USeagullStatisticsSession>(this); StatisticsSession->Initialize(this); }
+    return StatisticsSession;
 }

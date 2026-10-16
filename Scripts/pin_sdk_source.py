@@ -9,9 +9,9 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--sdk-source',type=Path,required=True);parser.add_argument('--tag');args=parser.parse_args()
+    parser=argparse.ArgumentParser();parser.add_argument('--sdk-source',type=Path,required=True);parser.add_argument('--tag');parser.add_argument('--sdk-ref',default='HEAD');args=parser.parse_args()
     def git(*values): return subprocess.check_output(['git','-C',str(args.sdk_source),*values])
-    commit=git('rev-parse','HEAD').decode().strip()
+    commit=git('rev-parse',args.sdk_ref).decode().strip()
     names=git('ls-tree','-r','--name-only',commit,'Plugins/HorizonSDK').decode().splitlines()
     files={}
     for name in names:

@@ -5,7 +5,7 @@
 #include "HorizonConfig.h"
 #include "HorizonSDKModule.h"
 #include "Transport/HorizonLeaderboardTransportContract.h"
-#include "Transport/HorizonValidatedActionsTransportContract.h"
+#include "Transport/HorizonRetryContract.h"
 
 #include "HttpModule.h"
 #include "Interfaces/IHttpRequest.h"
@@ -17,8 +17,6 @@
 #include "Dom/JsonValue.h"
 #include "Misc/App.h"
 #include "Containers/Ticker.h"
-#include "TimerManager.h"
-#include "Engine/World.h"
 
 // ============================================================
 // Initialization
@@ -33,6 +31,7 @@ void UHorizonHttpClient::Initialize()
 		return;
 	}
 
+	++TransportContextEpoch;
 	ApiKey                   = Config->ApiKey;
 	MaxRetryAttempts         = Config->MaxRetryAttempts;
 	RetryDelaySeconds        = Config->RetryDelaySeconds;
@@ -93,6 +92,7 @@ void UHorizonHttpClient::ConnectToServer(FOnRequestComplete OnComplete)
 					const FString Body = Resp->GetContentAsString();
 					if (Body.Contains(TEXT("UP")))
 					{
+						if (Self->ActiveHost != CapturedHost) ++Self->TransportContextEpoch;
 						Self->ActiveHost = CapturedHost;
 						Self->ConnectionStatus = EHorizonConnectionStatus::Connected;
 						UE_LOG(LogHorizonSDK, Log, TEXT("Connected to %s"), *CapturedHost);
@@ -145,6 +145,7 @@ void UHorizonHttpClient::ConnectToServer(FOnRequestComplete OnComplete)
 
 void UHorizonHttpClient::Disconnect()
 {
+	++TransportContextEpoch;
 	ActiveHost.Empty();
 	SessionToken.Empty();
 	ConnectionStatus = EHorizonConnectionStatus::Disconnected;
@@ -172,12 +173,13 @@ EHorizonConnectionStatus UHorizonHttpClient::GetConnectionStatus() const
 
 void UHorizonHttpClient::SetSessionToken(const FString& Token)
 {
+	if (SessionToken != Token) ++SessionContextEpoch;
 	SessionToken = Token;
 }
 
 void UHorizonHttpClient::ClearSessionToken()
 {
-	SessionToken.Empty();
+	SetSessionToken(TEXT(""));
 }
 
 FString UHorizonHttpClient::GetSessionToken() const
@@ -209,7 +211,10 @@ void UHorizonHttpClient::PostJson(const TSharedRef<FJsonObject>& Body, const FSt
 	FTCHARToUTF8 Converter(*JsonString);
 	Payload.Append(reinterpret_cast<const uint8*>(Converter.Get()), Converter.Length());
 
-	SendRequest(TEXT("POST"), Url, TEXT("application/json"), Payload, bUseSessionToken, 0, OnComplete, TEXT(""), ExtraHeaders);
+	FString IdempotencyId;
+	const bool HasId = Body->TryGetStringField(TEXT("idempotencyId"), IdempotencyId) && IdempotencyId.Len() <= 128 && HorizonTransportContract::HasNonBlankIdempotencyId(TCHAR_TO_UTF8(*IdempotencyId));
+	const bool bAllowRetry = HorizonTransportContract::AllowJsonPostRetry(TCHAR_TO_UTF8(*Endpoint), HasId);
+    SendRequest(TEXT("POST"), Url, TEXT("application/json"), Payload, bUseSessionToken, 0, OnComplete, TEXT(""), ExtraHeaders, bAllowRetry);
 }
 
 void UHorizonHttpClient::PostJsonForBinary(const TSharedRef<FJsonObject>& Body, const FString& Endpoint, bool bUseSessionToken, FOnHttpResponse OnComplete)
@@ -222,8 +227,11 @@ void UHorizonHttpClient::PostJsonForBinary(const TSharedRef<FJsonObject>& Body, 
 	FTCHARToUTF8 Converter(*JsonString);
 	Payload.Append(reinterpret_cast<const uint8*>(Converter.Get()), Converter.Length());
 
+	FString IdempotencyId;
+	const bool HasId = Body->TryGetStringField(TEXT("idempotencyId"), IdempotencyId) && IdempotencyId.Len() <= 128 && HorizonTransportContract::HasNonBlankIdempotencyId(TCHAR_TO_UTF8(*IdempotencyId));
+	const bool bAllowRetry = HorizonTransportContract::AllowJsonPostRetry(TCHAR_TO_UTF8(*Endpoint), HasId);
 	SendRequest(TEXT("POST"), Url, TEXT("application/json"), Payload, bUseSessionToken, 0, OnComplete,
-		TEXT("application/octet-stream"));
+		TEXT("application/octet-stream"), TMap<FString,FString>(), bAllowRetry);
 }
 
 void UHorizonHttpClient::PutJson(const TSharedRef<FJsonObject>& Body, const FString& Endpoint, bool bUseSessionToken, FOnHttpResponse OnComplete)
@@ -276,7 +284,8 @@ void UHorizonHttpClient::SendRequest(
 	int32 RetryCount,
 	FOnHttpResponse OnComplete,
 	const FString& AcceptContentType,
-	const TMap<FString, FString>& ExtraHeaders)
+	const TMap<FString, FString>& ExtraHeaders,
+    bool bAllowRetry)
 {
 	TSharedRef<IHttpRequest, ESPMode::ThreadSafe> Request = FHttpModule::Get().CreateRequest();
 	Request->SetVerb(Verb);
@@ -299,9 +308,11 @@ void UHorizonHttpClient::SendRequest(
 	TArray<uint8> CapturedPayload = Payload;
 	FOnHttpResponse CapturedOnComplete = OnComplete;
 	const FString RequestHost = ActiveHost, RequestKey = ApiKey, RequestSession = SessionToken;
+	const uint64 RequestGeneration = TransportContextEpoch;
+	const uint64 SessionGeneration = SessionContextEpoch;
 
 	Request->OnProcessRequestComplete().BindLambda(
-		[WeakSelf, CapturedVerb, CapturedUrl, CapturedContentType, CapturedAcceptContentType, CapturedExtraHeaders, CapturedPayload, bUseSessionToken, RetryCount, CapturedOnComplete, RequestHost, RequestKey, RequestSession]
+		[WeakSelf, CapturedVerb, CapturedUrl, CapturedContentType, CapturedAcceptContentType, CapturedExtraHeaders, CapturedPayload, bUseSessionToken, RetryCount, CapturedOnComplete, RequestHost, RequestKey, RequestSession, RequestGeneration, SessionGeneration, bAllowRetry]
 		(FHttpRequestPtr /*Req*/, FHttpResponsePtr Resp, bool bConnected)
 		{
 			UHorizonHttpClient* Self = WeakSelf.Get();
@@ -310,7 +321,7 @@ void UHorizonHttpClient::SendRequest(
 				return;
 			}
 
-			if (Self->ActiveHost != RequestHost || Self->ApiKey != RequestKey || (bUseSessionToken && Self->SessionToken != RequestSession))
+			if (Self->TransportContextEpoch != RequestGeneration || (bUseSessionToken && Self->SessionContextEpoch != SessionGeneration) || Self->ActiveHost != RequestHost || Self->ApiKey != RequestKey || (bUseSessionToken && Self->SessionToken != RequestSession))
 			{
 				FHorizonNetworkResponse Changed; Changed.ServerErrorCode = TEXT("SESSION_CHANGED"); Changed.ErrorMessage = TEXT("Request identity changed");
 				CapturedOnComplete.ExecuteIfBound(Changed); return;
@@ -323,26 +334,24 @@ void UHorizonHttpClient::SendRequest(
 				return;
 			}
 
+            // A lost signup response must not create a second server identity.
+            if (!bAllowRetry) { CapturedOnComplete.ExecuteIfBound(Response); return; }
+
 			// Handle HTTP 429 (rate limited)
 			if (Response.StatusCode == 429)
 			{
-				float RetryAfter = 1.0f;
+				double ServerRetryAfter = 1.0;
 				if (Resp.IsValid())
 				{
 					const FString RetryAfterHeader = Resp->GetHeader(TEXT("Retry-After"));
 					if (!RetryAfterHeader.IsEmpty())
 					{
-						const float Parsed = FCString::Atof(*RetryAfterHeader);
-						if (Parsed > 0.0f)
-						{
-							RetryAfter = Parsed;
-						}
+						ServerRetryAfter = FCString::Atod(*RetryAfterHeader);
 					}
 				}
 
-				// Validated Actions run limits (RUN_RATE_LIMITED, RUN_CAPACITY_REACHED) can mean a wait
-				// of up to an hour: deliver them right away instead of retrying.
-				if (HorizonTransportContract::IsNonRetryableRateLimitCode(TCHAR_TO_UTF8(*Response.ServerErrorCode)))
+				// Feature-specific policies are surfaced immediately, including future unknown codes.
+				if (HorizonTransportContract::IsFeatureRateLimitCode(TCHAR_TO_UTF8(*Response.ServerErrorCode)))
 				{
 					UE_LOG(LogHorizonSDK, Warning, TEXT("Rate limited (429, %s) on %s %s. Not retried: %s"),
 						*Response.ServerErrorCode, *CapturedVerb, *CapturedUrl, *Response.ErrorMessage);
@@ -352,6 +361,7 @@ void UHorizonHttpClient::SendRequest(
 
 				if (RetryCount < Self->MaxRetryAttempts)
 				{
+					const float RetryAfter = HorizonTransportContract::GlobalRateRetryDelay(ServerRetryAfter, FMath::FRand());
 					UE_LOG(LogHorizonSDK, Warning, TEXT("Rate limited (429) on %s %s. Retrying after %.1fs (attempt %d/%d)."),
 						*CapturedVerb, *CapturedUrl, RetryAfter, RetryCount + 1, Self->MaxRetryAttempts);
 
@@ -482,9 +492,9 @@ FHorizonNetworkResponse UHorizonHttpClient::ParseResponse(FHttpResponsePtr HttpR
 		else if (Response.StatusCode == 429)
 		{
 			// The server answers 429 with an empty body and a Retry-After header (seconds).
-			const float RetryAfterSeconds = FCString::Atof(*HttpResponse->GetHeader(TEXT("Retry-After")));
-			Response.ErrorMessage = RetryAfterSeconds > 0.0f
-				? FString::Printf(TEXT("Rate limit exceeded (HTTP 429). Try again in %d seconds."), FMath::CeilToInt(RetryAfterSeconds))
+			const double RetryAfterSeconds = FCString::Atod(*HttpResponse->GetHeader(TEXT("Retry-After")));
+			Response.ErrorMessage = std::isfinite(RetryAfterSeconds) && RetryAfterSeconds > 0.0
+				? FString::Printf(TEXT("Rate limit exceeded (HTTP 429). Try again in %.0f seconds."), std::ceil(RetryAfterSeconds))
 				: FString(TEXT("Rate limit exceeded (HTTP 429). Try again later."));
 		}
 		else
@@ -538,71 +548,29 @@ void UHorizonHttpClient::ScheduleRetry(
 	FOnHttpResponse CapturedOnComplete = OnComplete;
 	int32 NextRetryCount = RetryCount + 1;
 	const FString RequestHost = ActiveHost, RequestKey = ApiKey, RequestSession = SessionToken;
+	const uint64 RequestGeneration = TransportContextEpoch;
+	const uint64 SessionGeneration = SessionContextEpoch;
 
-	// Try to use UWorld timer first (game thread safe with pause support)
-	UWorld* World = nullptr;
-	if (GetOuter())
-	{
-		World = GetOuter()->GetWorld();
-	}
-	if (!World)
-	{
-		World = GEngine ? GEngine->GetCurrentPlayWorld() : nullptr;
-	}
-
-	if (World)
-	{
-		FTimerHandle TimerHandle;
-		World->GetTimerManager().SetTimer(
-			TimerHandle,
-			[WeakSelf, CapturedVerb, CapturedUrl, CapturedContentType, CapturedAcceptContentType, CapturedExtraHeaders, CapturedPayload, bUseSessionToken, NextRetryCount, CapturedOnComplete, RequestHost, RequestKey, RequestSession]()
+	// Network backoff uses monotone wall time, independent of game time dilation/pause.
+	const double RetryAt = FPlatformTime::Seconds() + double(DelaySeconds);
+	FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda(
+		[WeakSelf, CapturedVerb, CapturedUrl, CapturedContentType, CapturedAcceptContentType,
+		 CapturedExtraHeaders, CapturedPayload, bUseSessionToken, NextRetryCount, CapturedOnComplete,
+		 RequestHost, RequestKey, RequestSession, RequestGeneration, SessionGeneration, RetryAt](float) -> bool
+		{
+			if (FPlatformTime::Seconds() < RetryAt) return true;
+			if (auto* Self = WeakSelf.Get())
 			{
-				UHorizonHttpClient* Self = WeakSelf.Get();
-				if (Self)
+				if (Self->TransportContextEpoch != RequestGeneration || (bUseSessionToken && Self->SessionContextEpoch != SessionGeneration) || Self->ActiveHost != RequestHost || Self->ApiKey != RequestKey || (bUseSessionToken && Self->SessionToken != RequestSession))
 				{
-					if (Self->ActiveHost != RequestHost || Self->ApiKey != RequestKey || (bUseSessionToken && Self->SessionToken != RequestSession))
-					{
-						FHorizonNetworkResponse Changed; Changed.ServerErrorCode = TEXT("SESSION_CHANGED"); Changed.ErrorMessage = TEXT("Request identity changed before retry");
-						CapturedOnComplete.ExecuteIfBound(Changed); return;
-					}
-					Self->SendRequest(CapturedVerb, CapturedUrl, CapturedContentType, CapturedPayload,
-						bUseSessionToken, NextRetryCount, CapturedOnComplete, CapturedAcceptContentType, CapturedExtraHeaders);
+					FHorizonNetworkResponse Changed; Changed.ServerErrorCode = TEXT("SESSION_CHANGED"); Changed.ErrorMessage = TEXT("Request identity changed before retry");
+					CapturedOnComplete.ExecuteIfBound(Changed); return false;
 				}
-			},
-			DelaySeconds,
-			false
-		);
-	}
-	else
-	{
-		// Fallback: FTSTicker (works even without a world, e.g. in editor utilities)
-		FTSTicker::GetCoreTicker().AddTicker(
-			FTickerDelegate::CreateLambda(
-				[WeakSelf, CapturedVerb, CapturedUrl, CapturedContentType, CapturedAcceptContentType, CapturedExtraHeaders, CapturedPayload, bUseSessionToken, NextRetryCount, CapturedOnComplete, DelaySeconds, RequestHost, RequestKey, RequestSession]
-				(float DeltaTime) mutable -> bool
-				{
-					DelaySeconds -= DeltaTime;
-					if (DelaySeconds > 0.0f)
-					{
-						return true; // Keep ticking
-					}
-
-					UHorizonHttpClient* Self = WeakSelf.Get();
-					if (Self)
-					{
-						if (Self->ActiveHost != RequestHost || Self->ApiKey != RequestKey || (bUseSessionToken && Self->SessionToken != RequestSession))
-					{
-						FHorizonNetworkResponse Changed; Changed.ServerErrorCode = TEXT("SESSION_CHANGED"); Changed.ErrorMessage = TEXT("Request identity changed before retry");
-						CapturedOnComplete.ExecuteIfBound(Changed); return false;
-					}
-					Self->SendRequest(CapturedVerb, CapturedUrl, CapturedContentType, CapturedPayload,
-							bUseSessionToken, NextRetryCount, CapturedOnComplete, CapturedAcceptContentType, CapturedExtraHeaders);
-					}
-					return false; // Remove ticker
-				}
-			)
-		);
-	}
+				Self->SendRequest(CapturedVerb, CapturedUrl, CapturedContentType, CapturedPayload,
+					bUseSessionToken, NextRetryCount, CapturedOnComplete, CapturedAcceptContentType, CapturedExtraHeaders);
+			}
+			return false;
+		}));
 }
 
 // ============================================================
@@ -705,6 +673,7 @@ void UHorizonHttpClient::SelectBestHost(const TMap<FString, TArray<float>>& AllR
 		return;
 	}
 
+	if (ActiveHost != BestHost) ++TransportContextEpoch;
 	ActiveHost = BestHost;
 	ConnectionStatus = EHorizonConnectionStatus::Connected;
 	UE_LOG(LogHorizonSDK, Log, TEXT("Connected to %s (avg latency %.1f ms)"), *BestHost, BestAverage);

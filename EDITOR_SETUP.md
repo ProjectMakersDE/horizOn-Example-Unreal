@@ -131,9 +131,20 @@ compiler/linker directly and avoids a local build-accelerator link hang. The
 Development receipt stages Unreal's automation report template; Shipping does
 not include that QA template.
 
-Run `Scripts/run_native_acceptance.py --game Build/MacQA/Mac/SeagullStorm.app/Contents/MacOS/SeagullStorm --output /tmp/seagull-package-proof`
+Run `Scripts/run_native_acceptance.py --game Build/MacQA/SeagullStorm.app/Contents/MacOS/SeagullStorm --output /tmp/seagull-package-proof`
 with a fresh output directory, then repeat with `--hello` and a separate output.
 The recorded 2026-10-16 checks built both Mac architectures and executed arm64
 with Metal at 1280×720 and 960×540, including imported assets and fonts. Native
 reports contain the actual tests, their errors/warnings and all HTTP-fixture
 receipts; NullRHI or source-only CI does not replace these rendered checks.
+
+
+For the TASK-1005 statistics round and standalone Hello checks, repeat the native
+runner with `--statistics --port 18813`, adding `--hello` for the Hello variant.
+Use a new report directory each time. The strict local fixture deliberately sets
+server operation time two days behind local UTC, loses the first committed
+receipt, and expires a later original. It checks one three-counter batch,
+unchanged operation IDs, explicit replay and full server-state replacement.
+The native test also checks a persisted unassigned draft across a reload and
+refuses replacing its finalized operation ID. These are synthetic local proofs;
+real Cloud and simpleServer runtime acceptance is tracked separately.

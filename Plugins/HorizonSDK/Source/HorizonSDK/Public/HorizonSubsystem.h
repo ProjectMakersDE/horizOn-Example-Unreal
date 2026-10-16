@@ -8,6 +8,9 @@
 #include "HorizonSubsystem.generated.h"
 
 class UHorizonRealtimeManager;
+class UHorizonInboxManager;
+class UHorizonAchievementsManager;
+class UHorizonFriendsManager;
 class UHorizonPlayerValuesManager;
 class UHorizonHttpClient;
 class UHorizonAuthManager;
@@ -96,6 +99,13 @@ public:
 	UHorizonRealtimeManager* Realtime = nullptr;
 	UPROPERTY(BlueprintReadOnly, Category = "horizOn")
 	UHorizonPlayerValuesManager* PlayerValues = nullptr;
+
+    UPROPERTY(BlueprintReadOnly, Category = "horizOn")
+    UHorizonInboxManager* Inbox = nullptr;
+    UPROPERTY(BlueprintReadOnly, Category = "horizOn")
+    UHorizonAchievementsManager* Achievements = nullptr;
+    UPROPERTY(BlueprintReadOnly, Category = "horizOn")
+    UHorizonFriendsManager* Friends = nullptr;
 
 	// --- Connection ---
 

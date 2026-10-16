@@ -73,6 +73,8 @@ struct UObject {
 template<class... Args> struct Delegate {
  template<class F> static std::function<void(Args...)> CreateLambda(F Callback) { return Callback; }
 };
+struct FHorizonUserData {};
+struct FOnAnonymousIdentityIssued { template<class F> static int CreateLambda(F) { return 0; } };
 using FOnAuthComplete = Delegate<bool>;
 using FOnRequestComplete = Delegate<bool,const FString&>;
 using FOnStringComplete = Delegate<bool,const FString&>;
@@ -89,7 +91,7 @@ using FOnValidatedSubmitComplete = Delegate<bool,const FHorizonValidatedSubmitRe
 struct FakeAuth {
  struct User { FString UserId; FString DisplayName; } Current;
  std::vector<std::function<void(bool)>> Pending;
- void SignUpAnonymous(const FString&,std::function<void(bool)> C) { Pending.push_back(C); }
+ void SignUpAnonymous(const FString&,std::function<void(bool)> C,const FString& = "",int = 0) { Pending.push_back(C); }
  void SignInEmail(const FString&,const FString&,std::function<void(bool)> C) { Pending.push_back(C); }
  void SignUpEmail(const FString&,const FString&,const FString&,std::function<void(bool)> C) { Pending.push_back(C); }
  void RestoreAnonymousSession(std::function<void(bool)> C) { Pending.push_back(C); }
@@ -136,6 +138,14 @@ struct FakeValidated {
 };
 using UHorizonValidatedActionsManager = FakeValidated;
 struct UHorizonSubsystem { FakeAuth* Auth; FakeCloud* CloudSave; FakeConfig* RemoteConfig; FakeValidated* ValidatedActions; };
+struct UHorizonExampleIdentity {
+ static FString ProjectKey(UHorizonSubsystem*) { return "fixture-project"; }
+ static bool CaptureBeforeAuth(UHorizonSubsystem*,UHorizonExampleIdentity*& Out) { Out=nullptr; return true; }
+ static bool BeforeSignup(UHorizonSubsystem*,const FString&) { return true; }
+ static bool RecordIssuedSignup(const FString&,const FHorizonUserData&) { return true; }
+ static bool BeforeRestore(UHorizonSubsystem*,const FString&,bool,UHorizonExampleIdentity*&) { return true; }
+ static bool AfterAuth(UHorizonSubsystem*,const FString&,UHorizonExampleIdentity*,bool,bool,bool Success) { return Success; }
+};
 class USeagullHorizonManager;
 struct USeagullGameInstance {
  uint64 SessionGeneration=0;

@@ -1,6 +1,7 @@
 #include "UI/SeagullMainHub.h"
 #include "UI/SeagullSDKPanel.h"
 #include "UI/SeagullPlayerValuesPanel.h"
+#include "UI/SeagullStatisticsPanel.h"
 #include "UI/SeagullGiftCodePanel.h"
 #include "UI/SeagullFeedbackForm.h"
 #include "UI/SeagullSettingsPanel.h"
@@ -148,7 +149,9 @@ void USeagullMainHub::NativeOnInitialized()
 	SeagullWidgetStyles::AddRow(RightColumn, NewsBox, 4.f);
 	SeagullWidgetStyles::AddRow(NewsBox, SeagullWidgetStyles::MakeText(WidgetTree, TEXT("Coastal bulletin / online news appears here."), 16, SeagullColors::Sand));
 
-	// Bottom action buttons
+	auto* StatisticsButton=SeagullWidgetStyles::MakeTextButton(WidgetTree,TEXT("Statistics / original session batch"),SeagullColors::Teal,SeagullColors::LightText,16,TEXT("StatisticsButton"));
+    StatisticsButton->OnClicked.AddDynamic(this,&USeagullMainHub::OnStatisticsClicked); SeagullWidgetStyles::AddRow(RightColumn,StatisticsButton,4);
+    // Bottom action buttons
 	UHorizontalBox* ActionRow = WidgetTree->ConstructWidget<UHorizontalBox>(UHorizontalBox::StaticClass());
 	GiftCodeButton = SeagullWidgetStyles::MakeTextButton(WidgetTree, TEXT("Gift Code"),
 		SeagullColors::Teal, SeagullColors::LightText, SeagullWidgetStyles::SmallFontSize, TEXT("GiftCodeButton"));
@@ -539,3 +542,6 @@ void USeagullMainHub::OnPlayerValuesClicked()
     APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(),0);
     if (PC) { auto* Panel = CreateWidget<USeagullPlayerValuesPanel>(PC); if (Panel) Panel->AddToViewport(100); }
 }
+
+void USeagullMainHub::OnStatisticsClicked()
+{ if (auto* PC=GetOwningPlayer()) if (auto* Panel=CreateWidget<USeagullStatisticsPanel>(PC)) Panel->AddToViewport(100); }

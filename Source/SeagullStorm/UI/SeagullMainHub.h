@@ -91,6 +91,7 @@ private:
 
     UFUNCTION()
     void OnPlayerValuesClicked();
+    UFUNCTION() void OnStatisticsClicked();
 
 	UPROPERTY()
 	UTextBlock* SessionText = nullptr;

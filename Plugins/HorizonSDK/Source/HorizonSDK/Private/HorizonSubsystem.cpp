@@ -2,6 +2,9 @@
 
 #include "HorizonSubsystem.h"
 #include "Managers/HorizonRealtimeManager.h"
+#include "Managers/HorizonInboxManager.h"
+#include "Managers/HorizonAchievementsManager.h"
+#include "Managers/HorizonFriendsManager.h"
 #include "Managers/HorizonPlayerValuesManager.h"
 #include "HorizonSDKModule.h"
 #include "Http/HorizonHttpClient.h"
@@ -40,6 +43,12 @@ void UHorizonSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	Realtime->Initialize(HttpClient, Auth);
 	PlayerValues = NewObject<UHorizonPlayerValuesManager>(this);
 	PlayerValues->Initialize(HttpClient, Auth);
+    Inbox = NewObject<UHorizonInboxManager>(this);
+    Inbox->Initialize(HttpClient, Auth, PlayerValues);
+    Achievements = NewObject<UHorizonAchievementsManager>(this);
+    Achievements->Initialize(HttpClient, Auth);
+    Friends = NewObject<UHorizonFriendsManager>(this);
+    Friends->Initialize(HttpClient, Auth);
 
 	// Create all managers
 	CloudSave = NewObject<UHorizonCloudSaveManager>(this);
@@ -77,6 +86,7 @@ void UHorizonSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 
 	// A gift code redeem that grants unlocks clears the cached player profile.
 	GiftCodes->SetPlayerProfileManager(PlayerProfile);
+	GiftCodes->SetPlayerValuesManager(PlayerValues);
 
 	ValidatedActions = NewObject<UHorizonValidatedActionsManager>(this);
 	ValidatedActions->Initialize(HttpClient, Auth);
