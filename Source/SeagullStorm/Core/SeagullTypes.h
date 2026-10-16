@@ -144,11 +144,11 @@ struct FSeagullWeaponStats
 // straight into the float channels renders every color drastically lighter).
 namespace SeagullColors
 {
-	const FLinearColor Orange       = FLinearColor::FromSRGBColor(FColor(0xD8, 0x79, 0x43)); // #D87943
-	const FLinearColor Teal         = FLinearColor::FromSRGBColor(FColor(0x52, 0x75, 0x75)); // #527575
-	const FLinearColor DarkBG       = FLinearColor::FromSRGBColor(FColor(0x1A, 0x1A, 0x2E)); // #1A1A2E
-	const FLinearColor PanelBG      = FLinearColor::FromSRGBColor(FColor(0x24, 0x24, 0x42)); // #242442 panel/card surface
-	const FLinearColor LightText    = FLinearColor::FromSRGBColor(FColor(0xEE, 0xEE, 0xEE)); // #EEEEEE
+	const FLinearColor Orange       = FLinearColor::FromSRGBColor(FColor(0xE7, 0x8A, 0x53)); // #E78A53
+	const FLinearColor Teal         = FLinearColor::FromSRGBColor(FColor(0x5F, 0x87, 0x87)); // #5F8787
+	const FLinearColor DarkBG       = FLinearColor::FromSRGBColor(FColor(0x12, 0x11, 0x13)); // #121113
+	const FLinearColor PanelBG      = FLinearColor::FromSRGBColor(FColor(0x1C, 0x1C, 0x1C)); // #1C1C1C panel/card surface
+	const FLinearColor LightText    = FLinearColor::FromSRGBColor(FColor(0xF5, 0xEF, 0xE4)); // #F5EFE4
 	const FLinearColor DarkText     = FLinearColor::FromSRGBColor(FColor(0x1C, 0x1C, 0x1C)); // #1C1C1C
 	const FLinearColor Sand         = FLinearColor::FromSRGBColor(FColor(0xF2, 0xD2, 0xA9)); // #F2D2A9
 	const FLinearColor Water        = FLinearColor::FromSRGBColor(FColor(0x3B, 0x7D, 0xD8)); // #3B7DD8

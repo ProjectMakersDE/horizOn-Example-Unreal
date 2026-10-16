@@ -1,4 +1,5 @@
 #include "Weapons/SeagullProjectile.h"
+#include "Animation/SeagullSpritePlane.h"
 #include "Enemies/SeagullEnemyBase.h"
 #include "Core/SeagullTypes.h"
 #include "Components/SphereComponent.h"
@@ -20,6 +21,9 @@ ASeagullProjectile::ASeagullProjectile()
 
 	SpriteComponent = CreateDefaultSubobject<UPaperFlipbookComponent>(TEXT("Sprite"));
 	SpriteComponent->SetupAttachment(RootComponent);
+	SpriteComponent->SetRelativeRotation(SeagullSpritePlane()); // Paper2D XZ -> arena XY.
+	SpriteComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	SpriteComponent->SetRelativeLocation(FVector(0.f, 0.f, 2.f));
 
 	// Flipbook asset is editor-created (see EDITOR_SETUP.md); null-guarded.
 	// Cached: projectiles spawn several times per second while firing.

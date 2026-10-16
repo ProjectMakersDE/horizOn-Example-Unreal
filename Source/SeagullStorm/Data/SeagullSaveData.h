@@ -31,6 +31,7 @@ struct FSeagullSaveData
 		Coins = 0;
 		Highscore = 0;
 		TotalRuns = 0;
+		Upgrades.Empty();
 		Upgrades.Add(TEXT("speed"), 0);
 		Upgrades.Add(TEXT("damage"), 0);
 		Upgrades.Add(TEXT("hp"), 0);

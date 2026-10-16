@@ -34,6 +34,9 @@ protected:
 	UPROPERTY(meta = (BindWidgetOptional))
 	UButton* GuestButton = nullptr;
 
+	UPROPERTY()
+	UButton* PracticeButton = nullptr;
+
 	UPROPERTY(meta = (BindWidgetOptional))
 	UButton* GoogleButton = nullptr;
 
@@ -54,6 +57,9 @@ private:
 	void OnGuestClicked();
 
 	UFUNCTION()
+	void OnPracticeClicked();
+
+	UFUNCTION()
 	void OnGoogleClicked();
 
 	UFUNCTION()
@@ -65,6 +71,6 @@ private:
 	UFUNCTION()
 	void OnRegisterClicked();
 
-	void OnAuthSuccess();
+	void OnAuthSuccess(bool bKnownNewPlayer = false);
 	void OnAuthFailure();
 };

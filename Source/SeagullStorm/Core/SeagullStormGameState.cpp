@@ -16,6 +16,7 @@ void ASeagullStormGameState::InitRun(USeagullConfigCache* Config)
 	CurrentWave = 0;
 	CurrentScore = 0;
 	CurrentLevel = 1;
+	PendingLevelUpChoices = 0;
 	KillCount = 0;
 	TotalXPCollected = 0;
 	CurrentXP = 0;
@@ -65,6 +66,8 @@ void ASeagullStormGameState::AddKill()
 
 void ASeagullStormGameState::AddXP(int32 Amount)
 {
+	if (!bRunActive || Amount <= 0) return;
+	const bool HadPendingChoices = PendingLevelUpChoices > 0;
 	CurrentXP += Amount;
 	TotalXPCollected += Amount;
 	RunStats.XPCollected = TotalXPCollected;
@@ -77,10 +80,11 @@ void ASeagullStormGameState::AddXP(int32 Amount)
 		RunStats.LevelReached = CurrentLevel;
 		XPToNextLevel = CalculateXPToNextLevel();
 		OnLevelUp.Broadcast(CurrentLevel);
-		OnTriggerLevelUpChoices.Broadcast();
+		++PendingLevelUpChoices;
 
 		UE_LOG(LogSeagullStorm, Log, TEXT("Level up! Now level %d"), CurrentLevel);
 	}
+	if (!HadPendingChoices && PendingLevelUpChoices > 0) OnTriggerLevelUpChoices.Broadcast();
 }
 
 void ASeagullStormGameState::AdvanceWave()
@@ -113,16 +117,16 @@ TArray<FSeagullLevelUpChoice> ASeagullStormGameState::GetLevelUpChoices(int32 Co
 
 			if (!ActiveWeapons.Contains(WType))
 			{
-				FilteredPool.Add(Choice);
+				if (Choice.Weight > 0) FilteredPool.Add(Choice);
 			}
 		}
 		else
 		{
-			FilteredPool.Add(Choice);
+			if (Choice.Weight > 0) FilteredPool.Add(Choice);
 		}
 	}
 
-	if (FilteredPool.Num() == 0) FilteredPool = Pool;
+	if (FilteredPool.Num() == 0) return Result;
 
 	// Calculate total weight
 	int32 TotalWeight = 0;
@@ -253,5 +257,11 @@ int32 ASeagullStormGameState::CalculateXPToNextLevel() const
 		Base = ConfigCacheRef->XPPerKillBase * 5; // Base XP = 50
 		Curve = ConfigCacheRef->XPLevelCurve;
 	}
-	return static_cast<int32>(Base * FMath::Pow(static_cast<float>(CurrentLevel), Curve));
+	return FMath::Max(1, static_cast<int32>(FMath::Max(1, Base) * FMath::Pow(static_cast<float>(CurrentLevel), FMath::Clamp(Curve, 0.1f, 3.f))));
+}
+
+void ASeagullStormGameState::ResolveLevelUpChoice()
+{
+    PendingLevelUpChoices = FMath::Max(0, PendingLevelUpChoices - 1);
+    if (bRunActive && PendingLevelUpChoices > 0) OnTriggerLevelUpChoices.Broadcast();
 }

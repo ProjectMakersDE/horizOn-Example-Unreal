@@ -1,4 +1,6 @@
 #include "Player/SeagullPlayerPawn.h"
+#include "Animation/SeagullSpritePlane.h"
+#include "Animation/SeagullCutoutRigComponent.h"
 #include "Player/SeagullHealthComponent.h"
 #include "Player/SeagullXPComponent.h"
 #include "Weapons/SeagullWeaponManager.h"
@@ -29,6 +31,11 @@ ASeagullPlayerPawn::ASeagullPlayerPawn()
 	// Sprite
 	SpriteComponent = CreateDefaultSubobject<UPaperFlipbookComponent>(TEXT("Sprite"));
 	SpriteComponent->SetupAttachment(RootComponent);
+	SpriteComponent->SetRelativeRotation(SeagullSpritePlane()); // Paper2D XZ -> arena XY.
+	SpriteComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	SpriteComponent->SetRelativeLocation(FVector(0.f, 0.f, 2.f));
+	CutoutRig = CreateDefaultSubobject<USeagullCutoutRigComponent>(TEXT("CutoutRig"));
+	CutoutRig->SetupAttachment(RootComponent);
 
 	// Flipbooks (assets are created in the editor from seagull.png, see EDITOR_SETUP.md;
 	// all loads are null-guarded so the game runs without them)
@@ -51,7 +58,7 @@ ASeagullPlayerPawn::ASeagullPlayerPawn()
 	SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
 	SpringArm->SetupAttachment(RootComponent);
 	SpringArm->TargetArmLength = 500.f;
-	SpringArm->SetRelativeRotation(FRotator(-90.f, 0.f, 0.f));
+	SpringArm->SetRelativeRotation(FRotator(-90.f, -90.f, 0.f)); // Camera right is +X, up is +Y.
 	SpringArm->bDoCollisionTest = false;
 	SpringArm->bInheritPitch = false;
 	SpringArm->bInheritYaw = false;
@@ -60,7 +67,8 @@ ASeagullPlayerPawn::ASeagullPlayerPawn()
 	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	Camera->SetupAttachment(SpringArm);
 	Camera->ProjectionMode = ECameraProjectionMode::Orthographic;
-	Camera->OrthoWidth = SeagullConstants::BaseResolutionWidth;
+	Camera->OrthoWidth = 720.f;
+	Camera->bAutoCalculateOrthoPlanes = true;
 
 	// Components
 	HealthComponent = CreateDefaultSubobject<USeagullHealthComponent>(TEXT("Health"));
@@ -75,6 +83,11 @@ void ASeagullPlayerPawn::BeginPlay()
 	HealthComponent->OnHealthChanged.AddDynamic(this, &ASeagullPlayerPawn::OnHealthChangedHandler);
 	ApplyUpgrades();
 	LastKnownHP = HealthComponent->CurrentHP;
+	if (CutoutRig->Initialize(SeagullCutout::Character::Gull, 44.f))
+	{
+		SpriteComponent->SetVisibility(false);
+		SpriteComponent->Stop();
+	}
 }
 
 void ASeagullPlayerPawn::Tick(float DeltaTime)
@@ -110,7 +123,20 @@ void ASeagullPlayerPawn::Tick(float DeltaTime)
 	Pos.Y = FMath::Clamp(Pos.Y, -HalfH, HalfH);
 	SetActorLocation(Pos);
 
-	UpdateFlipbookState(DeltaTime);
+    if (CutoutRig && CutoutRig->IsReady())
+    {
+        const bool Moving = MovementComponent && MovementComponent->Velocity.SizeSquared() > 25.f;
+        CutoutRig->UpdatePose(DeltaTime, Moving, SpriteComponent->GetRelativeScale3D().X,
+            HealthComponent->IsInvincible() ? SeagullColors::Orange : FLinearColor::White);
+    }
+    else if (SpriteComponent)
+    {
+        const bool Moving = MovementComponent && MovementComponent->Velocity.SizeSquared() > 25.f;
+        const float Bob = FMath::Sin(GetWorld()->GetTimeSeconds() * (Moving ? 14.f : 5.f)) * (Moving ? 2.f : 0.7f);
+        SpriteComponent->SetRelativeLocation(FVector(0.f, 0.f, 4.f + Bob));
+        SpriteComponent->SetSpriteColor(HealthComponent->IsInvincible() ? SeagullColors::Orange : FLinearColor::White);
+    }
+    UpdateFlipbookState(DeltaTime);
 }
 
 void ASeagullPlayerPawn::UpdateFlipbookState(float DeltaTime)
@@ -138,12 +164,18 @@ void ASeagullPlayerPawn::UpdateFlipbookState(float DeltaTime)
 
 void ASeagullPlayerPawn::OnHealthChangedHandler(int32 Current, int32 Max)
 {
-	if (Current < LastKnownHP && SpriteComponent && HurtFlipbook)
+	if (Current < LastKnownHP)
 	{
-		SpriteComponent->SetFlipbook(HurtFlipbook);
+		if (CutoutRig) CutoutRig->PlayHurt();
+		if (SpriteComponent && HurtFlipbook) SpriteComponent->SetFlipbook(HurtFlipbook);
 		HurtFlashTimer = 0.3f;
 	}
 	LastKnownHP = Current;
+}
+
+void ASeagullPlayerPawn::PlayAttackPose()
+{
+	if (CutoutRig) CutoutRig->PlayAttack();
 }
 
 void ASeagullPlayerPawn::ApplyUpgrades()
@@ -174,6 +206,7 @@ void ASeagullPlayerPawn::ApplyUpgrades()
 void ASeagullPlayerPawn::OnDeath()
 {
 	UE_LOG(LogSeagullStorm, Log, TEXT("Player died!"));
+	if (CutoutRig) CutoutRig->Freeze();
 
 	// Death flipbook hook: plays until the run actors are cleaned up
 	if (SpriteComponent && DeathFlipbook)

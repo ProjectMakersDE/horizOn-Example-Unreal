@@ -31,6 +31,8 @@ public:
 
 	TArray<FSeagullLevelUpChoice> GetLevelUpChoices(int32 Count) const;
 	void ApplyLevelUpChoice(const FSeagullLevelUpChoice& Choice);
+	void ResolveLevelUpChoice();
+	int32 PendingLevelUpChoices = 0;
 
 	// Run state
 	UPROPERTY()

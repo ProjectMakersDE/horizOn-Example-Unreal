@@ -68,7 +68,7 @@ void USeagullGameOverScreen::NativeOnInitialized()
 		SeagullWidgetStyles::TextFontSize, SeagullColors::XPGold, TEXT("CoinsText"));
 	SeagullWidgetStyles::AddRow(Column, CoinsText, 4.f);
 
-	RankText = SeagullWidgetStyles::MakeText(WidgetTree, TEXT("Rank: ..."),
+	RankText = SeagullWidgetStyles::MakeText(WidgetTree, TEXT("Rank: -"),
 		SeagullWidgetStyles::TextFontSize, SeagullColors::LightText, TEXT("RankText"));
 	SeagullWidgetStyles::AddRow(Column, RankText, 4.f);
 
@@ -129,7 +129,7 @@ void USeagullGameOverScreen::LoadGameOverData()
 	}
 
 	// Rank and score status are set externally by GameMode after the submit completes
-	if (RankText) RankText->SetText(FText::FromString(TEXT("Rank: ...")));
+	if (RankText) RankText->SetText(FText::FromString(TEXT("Rank: -")));
 	if (ScoreStatusText) ScoreStatusText->SetText(FText::GetEmpty());
 }
 
@@ -151,7 +151,7 @@ void USeagullGameOverScreen::SetRank(int32 Rank)
 {
 	if (RankText)
 	{
-		RankText->SetText(FText::FromString(FString::Printf(TEXT("Rank: #%d"), Rank)));
+		RankText->SetText(FText::FromString(Rank > 0 ? FString::Printf(TEXT("Rank: #%d"), Rank) : FString(TEXT("Rank: -"))));
 	}
 
 	// Update Best text to include rank

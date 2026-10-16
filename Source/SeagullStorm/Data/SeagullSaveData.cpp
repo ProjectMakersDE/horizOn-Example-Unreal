@@ -47,16 +47,24 @@ FSeagullSaveData FSeagullSaveData::FromJsonString(const FString& Json)
 		return Data;
 	}
 
-	Data.Coins = static_cast<int32>(Root->GetNumberField(TEXT("coins")));
-	Data.Highscore = static_cast<int32>(Root->GetNumberField(TEXT("highscore")));
-	Data.TotalRuns = static_cast<int32>(Root->GetNumberField(TEXT("totalRuns")));
+	auto ReadCount = [&Root](const TCHAR* Key)
+	{
+		double Number = 0;
+		Root->TryGetNumberField(Key, Number);
+		return FMath::IsFinite(Number) ? static_cast<int32>(FMath::Clamp(Number, 0.0, 2147483647.0)) : 0;
+	};
+	Data.Coins = ReadCount(TEXT("coins"));
+	Data.Highscore = ReadCount(TEXT("highscore"));
+	Data.TotalRuns = ReadCount(TEXT("totalRuns"));
 
 	const TSharedPtr<FJsonObject>* UpgradesObj = nullptr;
 	if (Root->TryGetObjectField(TEXT("upgrades"), UpgradesObj) && UpgradesObj)
 	{
 		for (const auto& Pair : (*UpgradesObj)->Values)
 		{
-			Data.Upgrades.Add(Pair.Key, static_cast<int32>(Pair.Value->AsNumber()));
+			double Number = 0;
+			if (Data.Upgrades.Contains(FString(Pair.Key)) && Pair.Value->TryGetNumber(Number) && FMath::IsFinite(Number))
+				Data.Upgrades.Add(FString(Pair.Key), static_cast<int32>(FMath::Clamp(Number, 0.0, 100.0)));
 		}
 	}
 

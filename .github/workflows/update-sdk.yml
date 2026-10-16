@@ -56,6 +56,9 @@ jobs:
           rm -rf Plugins/HorizonSDK
           cp -r sdk-source/Plugins/HorizonSDK Plugins/HorizonSDK
 
+      - name: Record verified SDK provenance
+        run: python3 Scripts/pin_sdk_source.py --sdk-source sdk-source --tag "v${{ steps.sdk.outputs.version }}"
+
       - name: Cleanup
         run: rm -rf sdk-source
 

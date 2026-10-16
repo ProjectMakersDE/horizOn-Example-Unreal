@@ -101,9 +101,11 @@ void USeagullLevelUpOverlay::SetChoices(const TArray<FSeagullLevelUpChoice>& InC
 {
 	Choices = InChoices;
 
+	UButton* Buttons[] = { Choice1Button, Choice2Button, Choice3Button };
 	UTextBlock* Texts[] = { Choice1Text, Choice2Text, Choice3Text };
 	for (int32 i = 0; i < 3; i++)
 	{
+		if (Buttons[i]) Buttons[i]->SetVisibility(Choices.IsValidIndex(i) ? ESlateVisibility::Visible : ESlateVisibility::Collapsed);
 		if (Texts[i] && Choices.IsValidIndex(i))
 		{
 			Texts[i]->SetText(FText::FromString(
@@ -156,4 +158,5 @@ void USeagullLevelUpOverlay::SelectChoice(int32 Index)
 	// Hide overlay and resume
 	ASeagullPlayerController* PC = Cast<ASeagullPlayerController>(UGameplayStatics::GetPlayerController(GetWorld(), 0));
 	if (PC) PC->HideLevelUpOverlay();
+	if (GS) GS->ResolveLevelUpChoice();
 }

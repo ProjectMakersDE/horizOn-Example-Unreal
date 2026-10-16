@@ -7,8 +7,8 @@
  * Unity, Godot and Unreal Seagull Storm examples).
  *
  * The SDK hashes these bytes (SHA-256) for the validated submit and, when the server asks
- * for evidence, uploads the same bytes. A replay checker can rebuild the run from the seed
- * and the recorded inputs.
+ * for evidence, uploads the same bytes. This is client-recorded evidence, not a complete
+ * authoritative replay: physics, frame timing, balance config and upgrades are not encoded.
  *
  * Layout (little endian):
  *   Header, 5 bytes: uint8 version (1), uint32 seed of the run ticket (0 until the ticket arrives).

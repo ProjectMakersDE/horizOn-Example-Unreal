@@ -1,4 +1,5 @@
 #include "Weapons/SeagullWeaponBase.h"
+#include "Player/SeagullPlayerPawn.h"
 
 USeagullWeaponBase::USeagullWeaponBase()
 {
@@ -15,6 +16,7 @@ void USeagullWeaponBase::TickComponent(float DeltaTime, ELevelTick TickType, FAc
 	if (CooldownTimer <= 0.f)
 	{
 		Fire();
+		if (ASeagullPlayerPawn* Player = Cast<ASeagullPlayerPawn>(GetOwner())) Player->PlayAttackPose();
 		CooldownTimer = Cooldown;
 	}
 }

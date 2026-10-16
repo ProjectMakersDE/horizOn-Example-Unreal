@@ -17,5 +17,5 @@ public:
 	void GenerateArena();
 
 private:
-	void SpawnGroundTile(const FVector& Position, const FLinearColor& Color);
+	void SpawnGroundTile(const FVector& Position, const FLinearColor& Color, const FVector2D& Size);
 };

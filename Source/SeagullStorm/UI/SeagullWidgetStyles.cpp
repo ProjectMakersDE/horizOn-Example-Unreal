@@ -11,6 +11,7 @@
 #include "Components/VerticalBox.h"
 #include "Components/VerticalBoxSlot.h"
 #include "Misc/Paths.h"
+#include "Styling/CoreStyle.h"
 
 namespace
 {
@@ -26,7 +27,9 @@ namespace
 
 FSlateFontInfo SeagullWidgetStyles::GetPixelFont(int32 Size)
 {
-	return FSlateFontInfo(FPaths::ProjectContentDir() / TEXT("Fonts/PressStart2P-Regular.ttf"), Size);
+	// Keep the historic helper name and bundled font for compatibility. The
+	// engine's Roboto Regular face is more readable for the cel-shaded UI.
+	return FCoreStyle::GetDefaultFontStyle(TEXT("Regular"), Size, FFontOutlineSettings());
 }
 
 FButtonStyle SeagullWidgetStyles::MakeButtonStyle(const FLinearColor& BaseColor)
@@ -70,6 +73,13 @@ UEditableTextBox* SeagullWidgetStyles::MakeTextInput(UWidgetTree* Tree, const FS
 {
 	UEditableTextBox* Box = Tree->ConstructWidget<UEditableTextBox>(UEditableTextBox::StaticClass(), WidgetName);
 	Box->SetHintText(FText::FromString(Hint));
+	// UEditableTextBox has no font setter in 5.5: set the style before Slate builds it.
+	Box->WidgetStyle.SetFont(GetPixelFont(SmallFontSize));
+    Box->WidgetStyle.SetForegroundColor(FSlateColor(SeagullColors::LightText));
+    Box->WidgetStyle.SetBackgroundImageNormal(FSlateColorBrush(SeagullColors::DarkBG));
+    Box->WidgetStyle.SetBackgroundImageHovered(FSlateColorBrush(SeagullColors::PanelBG));
+    Box->WidgetStyle.SetBackgroundImageFocused(FSlateColorBrush(SeagullColors::PanelBG));
+    Box->WidgetStyle.SetPadding(FMargin(12.f,8.f));
 	return Box;
 }
 

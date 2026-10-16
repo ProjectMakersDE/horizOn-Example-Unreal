@@ -7,6 +7,7 @@
 #include "Horizon/SeagullHorizonManager.h"
 #include "HorizonSubsystem.h"
 #include "Managers/HorizonAuthManager.h"
+#include "HorizonSessionSave.h"
 #include "Blueprint/WidgetTree.h"
 #include "Components/Border.h"
 #include "Components/Button.h"
@@ -15,6 +16,7 @@
 #include "Components/EditableTextBox.h"
 #include "Components/Image.h"
 #include "Components/SizeBox.h"
+#include "Components/ScaleBox.h"
 #include "Components/TextBlock.h"
 #include "Components/VerticalBox.h"
 #include "Components/VerticalBoxSlot.h"
@@ -40,15 +42,17 @@ void USeagullTitleScreen::NativeOnInitialized()
 		BackgroundSlot->SetOffsets(FMargin(0.f));
 	}
 
-	// Centered column
+	// Scale the centered title contents to the available window, including 720p.
+	UScaleBox* ScreenFit = WidgetTree->ConstructWidget<UScaleBox>();
+	ScreenFit->SetStretch(EStretch::ScaleToFit);
+	if (UCanvasPanelSlot* FitSlot = RootCanvas->AddChildToCanvas(ScreenFit))
+	{
+		FitSlot->SetAnchors(FAnchors(0.04f, 0.03f, 0.96f, 0.97f));
+		FitSlot->SetOffsets(FMargin(0.f));
+	}
 	USizeBox* ColumnSize = WidgetTree->ConstructWidget<USizeBox>(USizeBox::StaticClass());
 	ColumnSize->SetWidthOverride(680.f);
-	if (UCanvasPanelSlot* ColumnSlot = RootCanvas->AddChildToCanvas(ColumnSize))
-	{
-		ColumnSlot->SetAnchors(FAnchors(0.5f, 0.5f));
-		ColumnSlot->SetAlignment(FVector2D(0.5f, 0.5f));
-		ColumnSlot->SetAutoSize(true);
-	}
+	ScreenFit->AddChild(ColumnSize);
 
 	UVerticalBox* Column = WidgetTree->ConstructWidget<UVerticalBox>(UVerticalBox::StaticClass());
 	ColumnSize->AddChild(Column);
@@ -59,12 +63,11 @@ void USeagullTitleScreen::NativeOnInitialized()
 	LogoSize->SetHeightOverride(192.f);
 	LogoImage = WidgetTree->ConstructWidget<UImage>(UImage::StaticClass(), TEXT("LogoImage"));
 	UTexture2D* LogoTexture = FImageUtils::ImportFileAsTexture2D(
-		FPaths::ProjectContentDir() / TEXT("Textures/seagull_logo.png"));
+		FPaths::ProjectContentDir() / TEXT("Textures/seagull_hero.png"));
 	if (LogoTexture)
 	{
-		// The sampler state was baked when ImportFileAsTexture2D initialized the
-		// resource; re-init so TF_Nearest actually applies (crisp pixel art).
-		LogoTexture->Filter = TextureFilter::TF_Nearest;
+		// Rebuild the sampler resource for the new cel-shaded artwork.
+		LogoTexture->Filter = TextureFilter::TF_Bilinear;
 		LogoTexture->UpdateResource();
 		LogoImage->SetBrushFromTexture(LogoTexture, false);
 	}
@@ -85,7 +88,7 @@ void USeagullTitleScreen::NativeOnInitialized()
 	TitleText->SetJustification(ETextJustify::Center);
 	SeagullWidgetStyles::AddRow(Column, TitleText, 6.f);
 
-	SubtitleText = SeagullWidgetStyles::MakeText(WidgetTree, TEXT("horizOn SDK Example"),
+	SubtitleText = SeagullWidgetStyles::MakeText(WidgetTree, TEXT("Outlast the tide. Build your flock."),
 		SeagullWidgetStyles::SmallFontSize, SeagullColors::LightText, TEXT("SubtitleText"));
 	SubtitleText->SetJustification(ETextJustify::Center);
 	SeagullWidgetStyles::AddRow(Column, SubtitleText, 6.f);
@@ -94,18 +97,26 @@ void USeagullTitleScreen::NativeOnInitialized()
 	NameInput = SeagullWidgetStyles::MakeTextInput(WidgetTree, TEXT("Enter your name..."), TEXT("NameInput"));
 	SeagullWidgetStyles::AddRow(Column, NameInput, 14.f);
 
-	// Auth buttons
-	GuestButton = SeagullWidgetStyles::MakeTextButton(WidgetTree, TEXT("Play as Guest"),
+	PracticeButton = SeagullWidgetStyles::MakeTextButton(WidgetTree, TEXT("Play offline practice"),
+        SeagullColors::Orange, SeagullColors::DarkText, SeagullWidgetStyles::TextFontSize, TEXT("PracticeButton"));
+    SeagullWidgetStyles::AddRow(Column, PracticeButton);
+
+    // Auth buttons
+	GuestButton = SeagullWidgetStyles::MakeTextButton(WidgetTree, TEXT("Connect as guest"),
 		SeagullColors::Orange, SeagullColors::DarkText, SeagullWidgetStyles::TextFontSize, TEXT("GuestButton"));
 	SeagullWidgetStyles::AddRow(Column, GuestButton);
 
 	GoogleButton = SeagullWidgetStyles::MakeTextButton(WidgetTree, TEXT("Sign In with Google"),
 		SeagullColors::Teal, SeagullColors::LightText, SeagullWidgetStyles::TextFontSize, TEXT("GoogleButton"));
-	SeagullWidgetStyles::AddRow(Column, GoogleButton);
+	GoogleButton->SetVisibility(ESlateVisibility::Collapsed);
 
 	AppleButton = SeagullWidgetStyles::MakeTextButton(WidgetTree, TEXT("Sign In with Apple"),
 		SeagullColors::Teal, SeagullColors::LightText, SeagullWidgetStyles::TextFontSize, TEXT("AppleButton"));
-	SeagullWidgetStyles::AddRow(Column, AppleButton);
+	#if PLATFORM_IOS
+    SeagullWidgetStyles::AddRow(Column, AppleButton);
+#else
+    AppleButton->SetVisibility(ESlateVisibility::Collapsed);
+#endif
 
 	EmailButton = SeagullWidgetStyles::MakeTextButton(WidgetTree, TEXT("Sign In with Email"),
 		SeagullColors::Teal, SeagullColors::LightText, SeagullWidgetStyles::TextFontSize, TEXT("EmailButton"));
@@ -133,6 +144,7 @@ void USeagullTitleScreen::NativeConstruct()
 {
 	Super::NativeConstruct();
 
+	if (PracticeButton) PracticeButton->OnClicked.AddDynamic(this, &USeagullTitleScreen::OnPracticeClicked);
 	if (GuestButton) GuestButton->OnClicked.AddDynamic(this, &USeagullTitleScreen::OnGuestClicked);
 	if (GoogleButton) GoogleButton->OnClicked.AddDynamic(this, &USeagullTitleScreen::OnGoogleClicked);
 	if (AppleButton) AppleButton->OnClicked.AddDynamic(this, &USeagullTitleScreen::OnAppleClicked);
@@ -150,17 +162,29 @@ void USeagullTitleScreen::OnGuestClicked()
 
 	USeagullHorizonManager* HM = GI->GetHorizonManager();
 	if (!HM) return;
+	if (HM->IsAuthenticating())
+	{
+		if (StatusText) StatusText->SetText(FText::FromString(TEXT("Authentication is already in progress. Offline practice remains available.")));
+		return;
+	}
 
 	// Weak self: the title screen can be removed and GC'd (e.g. a concurrent
 	// session restore switching to the Hub) before the HTTP response lands.
 	TWeakObjectPtr<USeagullTitleScreen> WeakThis(this);
-	HM->SignUpAnonymous(Name, [WeakThis](bool bSuccess)
+	UHorizonSessionSave* Saved = UHorizonSessionSave::LoadFromDisk();
+    // A chosen guest login may leave a registered email account; its credentials
+    // remain recoverable. Anonymous or corrupt saved identities must be restored.
+    const bool bRestore = UHorizonSessionSave::HasSavedSession() &&
+        (!Saved || Saved->CachedUserId.IsEmpty() || Saved->bIsAnonymous || !Saved->CachedAnonymousToken.IsEmpty());
+    auto Complete = [WeakThis, bRestore](bool bSuccess)
 	{
 		USeagullTitleScreen* Screen = WeakThis.Get();
-		if (!Screen) return;
-		if (bSuccess) Screen->OnAuthSuccess();
+		if (!Screen || !Screen->IsInViewport()) return;
+		if (bSuccess) Screen->OnAuthSuccess(!bRestore);
 		else Screen->OnAuthFailure();
-	});
+	};
+    if (bRestore) HM->RestoreSession(Complete);
+    else HM->SignUpAnonymous(Name, Complete);
 }
 
 void USeagullTitleScreen::OnGoogleClicked()
@@ -181,17 +205,22 @@ void USeagullTitleScreen::OnAppleClicked()
 	USeagullGameInstance* GI = Cast<USeagullGameInstance>(UGameplayStatics::GetGameInstance(GetWorld()));
 	if (!GI) return;
 
-	UHorizonSubsystem* Subsystem = GI->GetHorizonSubsystem();
-	if (Subsystem && Subsystem->Auth)
+	USeagullHorizonManager* HM = GI->GetHorizonManager();
+	if (HM && HM->IsAuthenticating())
+	{
+		if (StatusText) StatusText->SetText(FText::FromString(TEXT("Authentication is already in progress.")));
+		return;
+	}
+	if (HM)
 	{
 		// Drop-in Apple flow -- native sheet on iOS, no-op fallback on other platforms.
 		// On non-iOS the SDK logs a warning and reports failure, which we surface to the user.
 		TWeakObjectPtr<USeagullTitleScreen> WeakThis(this);
-		Subsystem->Auth->SignInWithApple(FOnAuthComplete::CreateLambda(
+		HM->SignInWithApple(
 			[WeakThis](bool bSuccess)
 			{
 				USeagullTitleScreen* Screen = WeakThis.Get();
-				if (!Screen) return;
+				if (!Screen || !Screen->IsInViewport()) return;
 				if (bSuccess)
 				{
 					Screen->OnAuthSuccess();
@@ -207,7 +236,7 @@ void USeagullTitleScreen::OnAppleClicked()
 						UE_LOG(LogSeagullStorm, Warning, TEXT("Apple sign-in not available on this platform"));
 					}
 				}
-			}));
+			});
 	}
 	else
 	{
@@ -248,8 +277,9 @@ void USeagullTitleScreen::OnRegisterClicked()
 	}
 }
 
-void USeagullTitleScreen::OnAuthSuccess()
+void USeagullTitleScreen::OnAuthSuccess(bool bKnownNewPlayer)
 {
+    if (USeagullGameInstance* GI = Cast<USeagullGameInstance>(UGameplayStatics::GetGameInstance(GetWorld()))) GI->BeginOnlineSession(bKnownNewPlayer);
 	UE_LOG(LogSeagullStorm, Log, TEXT("Authentication successful"));
 
 	ASeagullStormGameMode* GM = Cast<ASeagullStormGameMode>(UGameplayStatics::GetGameMode(GetWorld()));
@@ -268,4 +298,13 @@ void USeagullTitleScreen::OnAuthFailure()
 		StatusText->SetText(FText::FromString(TEXT("Sign-in failed. Check your API key and connection.")));
 	}
 	UE_LOG(LogSeagullStorm, Warning, TEXT("Authentication failed"));
+}
+
+void USeagullTitleScreen::OnPracticeClicked()
+{
+    USeagullGameInstance* GI = Cast<USeagullGameInstance>(UGameplayStatics::GetGameInstance(GetWorld()));
+    if (!GI) return;
+    GI->BeginPractice();
+    ASeagullStormGameMode* GM = Cast<ASeagullStormGameMode>(UGameplayStatics::GetGameMode(GetWorld()));
+    if (GM) GM->SwitchToScreen(ESeagullGameScreen::Hub);
 }
