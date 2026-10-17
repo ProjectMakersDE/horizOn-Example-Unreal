@@ -55,10 +55,10 @@ commit a real key, password or session token.
 ## Official embedded SDK
 
 `Plugins/HorizonSDK` is the complete, unmodified official develop snapshot
-`12120bf4e19b7c6fd56157c6f8637cf05d51dadb` (descriptor version 1.9.0).
+`35df7fe2e3c073ed372cdc872a891c79a6f18695` (descriptor version1.6.0).
 It includes Player Values, Statistics, Realtime, Validated Actions and the native
 unity-build correction. This is an explicitly pinned develop source snapshot;
-no release was created. `SDK-SOURCE.json` records all 151 official files and hashes.
+no release was created. `SDK-SOURCE.json` records all254 official files and hashes.
 
 The example enables `HORIZON_WITH_VALIDATED_ACTIONS=1`. The release synchronization
 workflow replaces the entire plugin on future SDK releases. Example configuration
@@ -261,3 +261,7 @@ were rebuilt from its vector paths. The gull head is clipped from the original
 shared artwork. These are cutout parts animated in code.
 
 Code: [MIT](LICENSE). Font and artwork provenance: [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+
+## Integrated Develop feature update (in progress)
+
+The complete official SDK is pinned to merged Develop35df7fe. Gift redemption now prepares and persists the official V2 tuple before a separate explicit confirm. An uncertain response keeps that exact tuple for retry; current server balances remain separate from practice coins. Existing legacy local save fields remain readable. No V1 request or local reward application is used by the updated gift panel. Native acceptance of the new integration is pending; the earlier acceptance numbers above describe the previous SDK snapshot.

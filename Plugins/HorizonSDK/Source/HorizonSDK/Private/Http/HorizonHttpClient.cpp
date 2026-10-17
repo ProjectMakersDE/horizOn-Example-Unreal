@@ -1,6 +1,8 @@
 // Copyright (c) 2025-2026 horizOn. All rights reserved.
 
 #include "Http/HorizonHttpClient.h"
+#include "Transport/HorizonGiftCodeTransportContract.h"
+#include "Http/HorizonLosslessJson.h"
 #include "Engine/Engine.h"
 #include "HorizonConfig.h"
 #include "HorizonSDKModule.h"
@@ -198,6 +200,32 @@ void UHorizonHttpClient::Get(const FString& Endpoint, bool bUseSessionToken, FOn
 	SendRequest(TEXT("GET"), Url, TEXT("application/json"), EmptyPayload, bUseSessionToken, 0, OnComplete);
 }
 
+void UHorizonHttpClient::PostJsonRead(const TSharedRef<FJsonObject>& Body,const FString& Endpoint,FOnHttpResponse Complete)
+{
+    FString Json;if(!HorizonLosslessJson::Object(Body,Json)){FHorizonNetworkResponse R;R.ServerErrorCode=TEXT("INVALID_REQUEST");R.ErrorMessage=TEXT("Invalid read JSON");Complete.ExecuteIfBound(R);return;}
+    const FTCHARToUTF8 Bytes(*Json,Json.Len());TArray<uint8> Payload;Payload.Append(reinterpret_cast<const uint8*>(Bytes.Get()),Bytes.Length());
+    SendRequest(TEXT("POST"),ActiveHost/Endpoint,TEXT("application/json"),Payload,true,0,Complete);
+}
+void UHorizonHttpClient::RevisionJsonOnce(const TSharedPtr<FJsonObject>& Body,const FString& Endpoint,const FString& Verb,int64 Revision,FOnHttpResponse Complete)
+{
+    if((Verb!=TEXT("POST")&&Verb!=TEXT("PUT")&&Verb!=TEXT("DELETE"))||Revision<0||Revision>9007199254740991LL||(Verb==TEXT("DELETE")?Body.IsValid():!Body.IsValid())){FHorizonNetworkResponse R;R.ServerErrorCode=TEXT("INVALID_REQUEST");R.ErrorMessage=TEXT("Original revisioned write required");Complete.ExecuteIfBound(R);return;}
+    TArray<uint8> Payload;if(Body){FString Json;if(!HorizonLosslessJson::Object(Body.ToSharedRef(),Json)){FHorizonNetworkResponse R;R.ServerErrorCode=TEXT("INVALID_REQUEST");R.ErrorMessage=TEXT("Invalid write JSON");Complete.ExecuteIfBound(R);return;}const FTCHARToUTF8 Bytes(*Json,Json.Len());Payload.Append(reinterpret_cast<const uint8*>(Bytes.Get()),Bytes.Length());}
+    TMap<FString,FString> Headers;Headers.Add(TEXT("If-Match"),LexToString(Revision));SendRequest(Verb,ActiveHost/Endpoint,TEXT("application/json"),Payload,true,0,Complete,TEXT(""),Headers,false);
+}
+
+void UHorizonHttpClient::PostOriginalJsonOnce(const FString& Json,const FString& Endpoint,FOnHttpResponse Complete)
+{
+    const FTCHARToUTF8 Bytes(*Json,Json.Len());TArray<uint8> Payload;Payload.Append(reinterpret_cast<const uint8*>(Bytes.Get()),Bytes.Length());
+    SendRequest(TEXT("POST"),ActiveHost/Endpoint,TEXT("application/json"),Payload,true,0,Complete,TEXT(""),TMap<FString,FString>(),false);
+}
+
+void UHorizonHttpClient::JsonOnce(const TSharedRef<FJsonObject>& Body,const FString& Endpoint,bool bPut,bool bUseSessionToken,FOnHttpResponse Complete)
+{
+    FString Json;if(!HorizonLosslessJson::Object(Body,Json)){FHorizonNetworkResponse R;R.ServerErrorCode=TEXT("INVALID_REQUEST");R.ErrorMessage=TEXT("Invalid JSON write");Complete.ExecuteIfBound(R);return;}
+    const FTCHARToUTF8 Bytes(*Json);TArray<uint8> Payload;Payload.Append(reinterpret_cast<const uint8*>(Bytes.Get()),Bytes.Length());
+    SendRequest(bPut?TEXT("PUT"):TEXT("POST"),ActiveHost/Endpoint,TEXT("application/json"),Payload,bUseSessionToken,0,Complete,TEXT(""),TMap<FString,FString>(),false);
+}
+
 void UHorizonHttpClient::PostJson(const TSharedRef<FJsonObject>& Body, const FString& Endpoint, bool bUseSessionToken, FOnHttpResponse OnComplete,
 	const TMap<FString, FString>& ExtraHeaders)
 {
@@ -211,8 +239,12 @@ void UHorizonHttpClient::PostJson(const TSharedRef<FJsonObject>& Body, const FSt
 	FTCHARToUTF8 Converter(*JsonString);
 	Payload.Append(reinterpret_cast<const uint8*>(Converter.Get()), Converter.Length());
 
-	FString IdempotencyId;
-	const bool HasId = Body->TryGetStringField(TEXT("idempotencyId"), IdempotencyId) && IdempotencyId.Len() <= 128 && HorizonTransportContract::HasNonBlankIdempotencyId(TCHAR_TO_UTF8(*IdempotencyId));
+	FString Campaign,Count,Revision; double Protocol=0;
+    const auto CampaignValue=Body->TryGetField(TEXT("campaignId")),CountValue=Body->TryGetField(TEXT("expectedCount")),RevisionValue=Body->TryGetField(TEXT("configRevision"));
+    const bool StringIdentity=CampaignValue && CampaignValue->Type==EJson::String && CountValue && CountValue->Type==EJson::String && RevisionValue && RevisionValue->Type==EJson::String;
+    const bool HasId=StringIdentity && Body->TryGetNumberField(TEXT("protocolVersion"),Protocol) && Protocol==2 && Body->TryGetStringField(TEXT("campaignId"),Campaign) &&
+        HorizonTransportContract::GiftUuid(TCHAR_TO_UTF8(*Campaign)) && Body->TryGetStringField(TEXT("expectedCount"),Count) && Body->TryGetStringField(TEXT("configRevision"),Revision) &&
+        HorizonTransportContract::GiftCount(TCHAR_TO_UTF8(*Count)) && HorizonTransportContract::GiftCount(TCHAR_TO_UTF8(*Revision));
 	const bool bAllowRetry = HorizonTransportContract::AllowJsonPostRetry(TCHAR_TO_UTF8(*Endpoint), HasId);
     SendRequest(TEXT("POST"), Url, TEXT("application/json"), Payload, bUseSessionToken, 0, OnComplete, TEXT(""), ExtraHeaders, bAllowRetry);
 }
@@ -227,8 +259,12 @@ void UHorizonHttpClient::PostJsonForBinary(const TSharedRef<FJsonObject>& Body, 
 	FTCHARToUTF8 Converter(*JsonString);
 	Payload.Append(reinterpret_cast<const uint8*>(Converter.Get()), Converter.Length());
 
-	FString IdempotencyId;
-	const bool HasId = Body->TryGetStringField(TEXT("idempotencyId"), IdempotencyId) && IdempotencyId.Len() <= 128 && HorizonTransportContract::HasNonBlankIdempotencyId(TCHAR_TO_UTF8(*IdempotencyId));
+	FString Campaign,Count,Revision; double Protocol=0;
+    const auto CampaignValue=Body->TryGetField(TEXT("campaignId")),CountValue=Body->TryGetField(TEXT("expectedCount")),RevisionValue=Body->TryGetField(TEXT("configRevision"));
+    const bool StringIdentity=CampaignValue && CampaignValue->Type==EJson::String && CountValue && CountValue->Type==EJson::String && RevisionValue && RevisionValue->Type==EJson::String;
+    const bool HasId=StringIdentity && Body->TryGetNumberField(TEXT("protocolVersion"),Protocol) && Protocol==2 && Body->TryGetStringField(TEXT("campaignId"),Campaign) &&
+        HorizonTransportContract::GiftUuid(TCHAR_TO_UTF8(*Campaign)) && Body->TryGetStringField(TEXT("expectedCount"),Count) && Body->TryGetStringField(TEXT("configRevision"),Revision) &&
+        HorizonTransportContract::GiftCount(TCHAR_TO_UTF8(*Count)) && HorizonTransportContract::GiftCount(TCHAR_TO_UTF8(*Revision));
 	const bool bAllowRetry = HorizonTransportContract::AllowJsonPostRetry(TCHAR_TO_UTF8(*Endpoint), HasId);
 	SendRequest(TEXT("POST"), Url, TEXT("application/json"), Payload, bUseSessionToken, 0, OnComplete,
 		TEXT("application/octet-stream"), TMap<FString,FString>(), bAllowRetry);
@@ -456,6 +492,7 @@ FHorizonNetworkResponse UHorizonHttpClient::ParseResponse(FHttpResponsePtr HttpR
 	if (ContentTypeHeader.Contains(TEXT("application/json")))
 	{
 		const FString BodyString = HttpResponse->GetContentAsString();
+        Response.RawJsonBody = BodyString;
 		if (!BodyString.IsEmpty())
 		{
 			TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(BodyString);

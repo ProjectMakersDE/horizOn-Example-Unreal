@@ -1,6 +1,8 @@
 #include "Horizon/SeagullHorizonManager.h"
 #include "SeagullStorm.h"
 #include "Examples/HorizonExampleIdentity.h"
+#include "Examples/HorizonGiftCodesExample.h"
+#include "Kismet/GameplayStatics.h"
 #include "Core/SeagullGameInstance.h"
 #include "Data/SeagullConfigCache.h"
 #include "Managers/HorizonLocalizationManager.h"
@@ -316,26 +318,59 @@ void USeagullHorizonManager::LoadNews(int32 Limit, const FString& Lang, TFunctio
 
 // --- Gift Codes ---
 
-void USeagullHorizonManager::ValidateGiftCode(const FString& Code, TFunction<void(bool, bool)> Callback)
+FString USeagullHorizonManager::GiftSlot() const
 {
-	if (!Subsystem || !Subsystem->GiftCodes) { if (Callback) Callback(false, false); return; }
-
-	Subsystem->GiftCodes->Validate(Code, FOnGiftCodeValidateComplete::CreateLambda(
-		[Callback](bool bRequestSuccess, bool bValid)
-		{
-			if (Callback) Callback(bRequestSuccess, bValid);
-		}));
+    return Subsystem&&Subsystem->GetHttpClient()?TEXT("seagull-gift-v2-")+UHorizonExampleIdentity::Project(FHorizonGiftCodeIntent::Fingerprint(Subsystem->GetHttpClient()->GetApiKey())+TEXT("|")+GetUserId()):FString();
 }
-
-void USeagullHorizonManager::RedeemGiftCode(const FString& Code, TFunction<void(bool, const FString&, const FString&)> Callback)
+bool USeagullHorizonManager::ReadPendingGift(FHorizonGiftCodeIntent& Intent,FString& Error) const
 {
-	if (!Subsystem || !Subsystem->GiftCodes) { if (Callback) Callback(false, TEXT(""), TEXT("")); return; }
-
-	Subsystem->GiftCodes->Redeem(Code, FOnGiftCodeRedeemComplete::CreateLambda(
-		[Callback](bool bSuccess, const FString& GiftData, const FString& Message)
-		{
-			if (Callback) Callback(bSuccess, GiftData, Message);
-		}));
+    Intent={};Error.Reset();
+    if(!Subsystem||!Subsystem->GetHttpClient()||!IsSignedIn()){Error=TEXT("SESSION_REQUIRED");return false;}
+    const FString Slot=GiftSlot();if(!UGameplayStatics::DoesSaveGameExist(Slot,0))return true;
+    auto* Saved=Cast<UHorizonGiftCodePendingRedeem>(UGameplayStatics::LoadGameFromSlot(Slot,0));
+    if(!Saved||!Saved->Intent.IsValidFor(FHorizonGiftCodeIntent::Fingerprint(Subsystem->GetHttpClient()->GetApiKey()),GetUserId())){Error=TEXT("PENDING_STORAGE_ERROR");return false;}
+    Intent=Saved->Intent;return true;
+}
+void USeagullHorizonManager::PrepareGiftCode(const FString& Code,TFunction<void(bool,const FHorizonGiftCodeIntent&,const FString&)> Callback)
+{
+    FHorizonGiftCodeIntent Existing;FString Error;
+    if(bGiftInFlight){if(Callback)Callback(false,{},TEXT("REQUEST_IN_PROGRESS"));return;}
+    if(!ReadPendingGift(Existing,Error)){if(Callback)Callback(false,{},Error);return;}
+    if(!Existing.CampaignId.IsEmpty()){if(Callback)Callback(false,Existing,TEXT("PENDING_REDEMPTION"));return;}
+    auto* GI=GetTypedOuter<USeagullGameInstance>();if(!GI||!IsCurrentSession(GI->SessionGeneration,GetUserId())){if(Callback)Callback(false,{},TEXT("SESSION_REQUIRED"));return;}
+    const FString Owner=GetUserId(),Slot=GiftSlot();const uint64 Generation=GI->SessionGeneration,Context=Subsystem->GetHttpClient()->GetRequestContextEpoch();bGiftInFlight=true;
+    Subsystem->GiftCodes->PrepareRedemption(Code,FOnGiftCodePrepareComplete::CreateWeakLambda(this,[this,Owner,Slot,Generation,Context,Callback](bool Ok,const FHorizonGiftCodeIntent& Intent,const FString& Code,const FString&)
+    {
+        bGiftInFlight=false;
+        if(!IsCurrentSession(Generation,Owner)||Subsystem->GetHttpClient()->GetRequestContextEpoch()!=Context){if(Callback)Callback(false,{},TEXT("STALE_RESPONSE"));return;}
+        if(!Ok){if(Callback)Callback(false,{},Code);return;}
+        if(UGameplayStatics::DoesSaveGameExist(Slot,0)){if(Callback)Callback(false,{},TEXT("PENDING_REDEMPTION"));return;}
+        // Reuse the official SDK's SaveGame tuple. Store and verify before the
+        // separate confirm action. No bearer, historical reward or local coin delta.
+        auto* Saved=Cast<UHorizonGiftCodePendingRedeem>(UGameplayStatics::CreateSaveGameObject(UHorizonGiftCodePendingRedeem::StaticClass()));Saved->Intent=Intent;
+        if(!UGameplayStatics::SaveGameToSlot(Saved,Slot,0)){if(Callback)Callback(false,{},TEXT("PENDING_STORAGE_ERROR"));return;}
+        auto* Verified=Cast<UHorizonGiftCodePendingRedeem>(UGameplayStatics::LoadGameFromSlot(Slot,0));
+        if(!Verified||!Verified->Intent.SameIdentity(Intent)){if(Callback)Callback(false,{},TEXT("PENDING_STORAGE_ERROR"));return;}
+        if(Callback)Callback(true,Intent,TEXT(""));
+    }));
+}
+void USeagullHorizonManager::RedeemPendingGift(TFunction<void(bool,const FHorizonGiftCodeRedeemResult&,const FString&)> Callback)
+{
+    FHorizonGiftCodeIntent Intent;FString Error;
+    if(bGiftInFlight){if(Callback)Callback(false,{},TEXT("REQUEST_IN_PROGRESS"));return;}
+    if(!ReadPendingGift(Intent,Error)){if(Callback)Callback(false,{},Error);return;}
+    if(Intent.CampaignId.IsEmpty()){if(Callback)Callback(false,{},TEXT("NO_PENDING_REDEMPTION"));return;}
+    auto* GI=GetTypedOuter<USeagullGameInstance>();if(!GI||!IsCurrentSession(GI->SessionGeneration,GetUserId())){if(Callback)Callback(false,{},TEXT("SESSION_REQUIRED"));return;}
+    const FString Owner=GetUserId(),Slot=GiftSlot();const uint64 Generation=GI->SessionGeneration,Context=Subsystem->GetHttpClient()->GetRequestContextEpoch();bGiftInFlight=true;
+    Subsystem->GiftCodes->RedeemPrepared(Intent,FOnGiftCodeRedeemResultComplete::CreateWeakLambda(this,[this,Intent,Slot,Owner,Generation,Context,Callback](bool Ok,const FHorizonGiftCodeRedeemResult& Result,const FString& Code,const FString&)
+    {
+        bGiftInFlight=false;
+        if(!IsCurrentSession(Generation,Owner)||Subsystem->GetHttpClient()->GetRequestContextEpoch()!=Context){if(Callback)Callback(false,{},TEXT("STALE_RESPONSE"));return;}
+        if(!Ok){if(Callback)Callback(false,{},Code);return;}
+        auto* Saved=Cast<UHorizonGiftCodePendingRedeem>(UGameplayStatics::LoadGameFromSlot(Slot,0));
+        if(!Saved||!Saved->Intent.SameIdentity(Intent)||!UGameplayStatics::DeleteGameInSlot(Slot,0)){if(Callback)Callback(false,Result,TEXT("PENDING_STORAGE_ERROR"));return;}
+        if(Callback)Callback(true,Result,TEXT(""));
+    }));
 }
 
 // --- Feedback ---

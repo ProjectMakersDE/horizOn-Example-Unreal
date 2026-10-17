@@ -81,6 +81,7 @@ using FOnStringComplete = Delegate<bool,const FString&>;
 using FOnAllConfigsComplete = Delegate<bool,const TMap<FString,FString>&>;
 struct FHorizonLeaderboardEntry {}; struct FHorizonLeaderboardBoard {}; struct FHorizonPlayerState {};
 struct FHorizonPlayerProfileResult {}; struct FHorizonNewsEntry {};
+struct FHorizonGiftCodeIntent; struct FHorizonGiftCodeRedeemResult;
 struct FHorizonValidatedRun { FString RunId; int32 Seed = 0; };
 struct FHorizonEarnedValue { FHorizonEarnedValue(const FString&,int64) {} };
 struct FHorizonValidatedSubmitResult {
