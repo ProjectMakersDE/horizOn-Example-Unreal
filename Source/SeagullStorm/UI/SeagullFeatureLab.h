@@ -42,6 +42,8 @@ private:
     UFUNCTION() void SelectFeature(FString Selected,ESelectInfo::Type Selection);
     UFUNCTION() void RunSelected();
     UFUNCTION() void ShowSnapshot();
+    UFUNCTION() void ReadPlayerValues();
+    UFUNCTION() void ReadStatistics();
     UFUNCTION() void Connect();
     UFUNCTION() void Restore();
     UFUNCTION() void CreateGuest();
