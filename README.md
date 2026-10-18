@@ -18,16 +18,7 @@ full-image flipbooks are hidden while the complete rig is available. Actor
 collision, movement and 44/38-unit full-canvas widths stay unchanged.
 Moving feet/legs retain their walk cycle during auto-fire wing/claw attacks.
 
-**Unreal readiness:** the project targets Unreal 5.8.3. The native editor target,
-asset bootstrap and a rendered standalone editor-game run have passed on macOS
-arm64 with Xcode 26.6 and the Metal Toolchain. Imported maps, sprites, flipbooks,
-materials and audio are committed alongside their original source assets.
-The universal Mac Development package (arm64+x64) built, cooked and archived
-successfully. Its actual arm64 game/Player-Values and Hello runs passed; the game
-also passed at 960×540. There are 31 rendered package captures. The two game runs
-have one expected deliberate HTTP503 retry warning each, zero errors, and zero
-skips; Hello has zero warnings/errors. The runs use synthetic loopback fixtures,
-not a real Develop or production backend.
+**Current native checkpoint (2026-10-18):** Unreal5.8.3 on macOS with Xcode26.6 compiles the complete embedded SDK and all public guide sources for arm64+x64. The actual universal Development package passed the game/Player Values, Statistics, official Hello, Statistics-Hello and current-feature Hello workflows. The final bundle contains cooked game data and its runtime libraries; deep code-sign verification passes. Universal Shipping compilation also passes. These are native rendered runs against isolated synthetic loopback fixtures, with no real Develop or production write. Hosted two-client/restart acceptance remains pending.
 
 ## Start
 
@@ -267,3 +258,13 @@ Code: [MIT](LICENSE). Font and artwork provenance: [THIRD-PARTY-NOTICES.md](THIR
 The complete official SDK is pinned to merged Develop35df7fe. Gift redemption now prepares and persists the official V2 tuple before a separate explicit confirm. An uncertain response keeps that exact tuple for retry; current server balances remain separate from practice coins. Existing legacy local save fields remain readable. No V1 request or local reward application is used by the updated gift panel. Native acceptance of the new integration is pending; the earlier acceptance numbers above describe the previous SDK snapshot.
 
 The current feature Lab accepts the complete `ids` array for Match `start` (turn order) and `result` (sorted winner IDs). An explicit empty winner list can represent a draw; omitted arrays are rejected. `create` can likewise carry all invitees in `ids`. The final-state revision/result bytes remain the original values on retry. Four complete unchanged public read guides are under `Source/SeagullStorm/PublicFeatureGuides`, with exact Dashboard source hashes.
+
+## Current integrated native evidence (2026-10-18)
+
+The native Editor compiles every example and the unchanged public Marketplace guide. The actual current-feature Hello renders the nine explicit feature choices without automatic auth/write actions. The complete Match Lab dispatcher was tested over seven exact HTTP requests: read, start with the full two-player turn order, finish, result with both explicit winner IDs, uncertain response, screen recreation and byte-identical original retry. Missing ID arrays are refused before HTTP. No SDK fork or historical item reconstruction is introduced.
+
+Four complete Groups/Items/Matches/Shared public read guides compile unchanged in `PublicFeatureGuides`; their source record binds exact Dashboard/SDK hashes. A subsequent Items explanation changes comments only: initial responses can contain references, while compact replay can return empty applied/items and requires a separate current Inventory read.
+
+Pueue3533 proves the dual-architecture Editor, four guide sources and actual Match Lab HTTP dispatcher. Pueue3539 proves the complete universal packaged app and all five rendered game/Hello runs, plus universal Shipping compilation. Earlier runner failures were diagnosed: UAT requires `-specifiedarchitecture` for both architectures and an actual `-package` step before archiving; merely successful build/cook/stage/archive had left an incomplete Binaries app. Final acceptance checks architectures, cooked PAK, TBB runtime library, deep code-sign validity, native reports and actual screenshots. All required runtime gates remain enabled.
+
+The coordinated hosted Develop project, two native clients, real uncertain-outcome restart and same-player cross-engine JSON/Binary Cloud Save checks are separate pending gates. Source provider CI and synthetic native fixtures do not claim those results. No release/publication/live deployment is included.
