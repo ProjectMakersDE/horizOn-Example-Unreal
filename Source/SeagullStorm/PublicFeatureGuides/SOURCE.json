@@ -1,0 +1,23 @@
+{
+  "sdk": "35df7fe2e3c073ed372cdc872a891c79a6f18695",
+  "dashboardBase": "bfa5b2dfc0b4b882d73e34f33cffd74a61193ce9",
+  "sourceManifestSha256": "6f7fadd53010a1d56433db0b5048b6bdadd29464435ffa1e7e7823f594389ba0",
+  "files": {
+    "GroupsDemo.cpp": {
+      "feature": "groups",
+      "sha256": "9976d3022142e8b6df2d33587fef624a8bf1176a36e68c84994f7f2b944cf1f9"
+    },
+    "ItemsDemo.cpp": {
+      "feature": "items",
+      "sha256": "288a7919bdb108286e0ff7423d010595e123688f870193f3e98b50d3e463b85e"
+    },
+    "MatchesDemo.cpp": {
+      "feature": "matches",
+      "sha256": "df2b4424efe4ca1c5c0140d7b1dafa4674ff0b468db5810d5bdd25189a735522"
+    },
+    "SharedObjectsDemo.cpp": {
+      "feature": "shared-objects",
+      "sha256": "1d10ab5e085faad17973a112f6bd70d212dec95d80393c9e9e527738af1d3c8a"
+    }
+  }
+}

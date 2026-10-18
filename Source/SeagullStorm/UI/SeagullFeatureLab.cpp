@@ -54,6 +54,17 @@ bool Integer(const TSharedPtr<FJsonObject>& A,const TCHAR* Key,int64& Value,int6
     return LexToString(Value)==V&&Value>=-9007199254740991LL&&Value<=9007199254740991LL;
 }
 bool Flag(const TSharedPtr<FJsonObject>& A){bool V=false;A->TryGetBoolField(TEXT("flag"),V);return V;}
+bool MatchIds(const TSharedPtr<FJsonObject>& A,TArray<FString>& Out)
+{
+    if(!A->HasField(TEXT("ids")))return true;
+    const TArray<TSharedPtr<FJsonValue>>* Values;if(!A->TryGetArrayField(TEXT("ids"),Values))return false;
+    TSet<FString> Seen;for(const auto& Value:*Values)
+    {
+        FString Id;FGuid Parsed;if(!Value||!Value->TryGetString(Id)||Id.Len()!=36||!FGuid::ParseExact(Id,EGuidFormats::DigitsWithHyphens,Parsed)||Seen.Contains(Id.ToLower()))return false;
+        Id=Parsed.ToString(EGuidFormats::DigitsWithHyphensLower);Seen.Add(Id);Out.Add(Id);
+    }
+    return true; // The SDK owns route-specific cardinality, ordering and participant validation.
+}
 template<typename T>FString Json(const T& Value){FString Out;FJsonObjectConverter::UStructToJsonObjectString(T::StaticStruct(),&Value,Out,0,0);return Out;}
 }
 
@@ -146,8 +157,9 @@ bool USeagullFeatureLab::Execute(const FString& Feature,const FString& Action,co
     }
     else if(Feature==TEXT("Matches"))
     {
+        TArray<FString> Ids;if(!SeagullLab::MatchIds(A,Ids)||((Action==TEXT("start")||Action==TEXT("result"))&&!A->HasField(TEXT("ids")))){Error=TEXT("MATCH_IDS_ARRAY_REQUIRED");return false;}
         if(!Matches)Matches=GetWorld()->SpawnActor<AHorizonMatchesExample>();
-        if(Action==TEXT("read"))Matches->Refresh(Id);else if(Action==TEXT("find-open-page"))Matches->FindOpen(0,9007199254740991LL,Request);else if(Action==TEXT("create")){FHorizonMatchCreateInput Input;Input.Name=SeagullLab::Text(A,TEXT("name"));Input.Capacity=static_cast<int32>(Capacity);Input.Strength=Strength;Input.TurnSeconds=static_cast<int32>(Turn);Input.Visibility=SeagullLab::Text(A,TEXT("visibility"),TEXT("private"));Input.TimeoutPolicy=SeagullLab::Text(A,TEXT("timeoutPolicy"),TEXT("skip"));Input.Data=Data;Input.bRanked=Flag;if(!Target.IsEmpty())Input.InviteeIds.Add(Target);Matches->CreateLobby(Input);}else if(Action==TEXT("recover-original-ranked-source"))Matches->StartRankedFromPendingResult(Id);else if(Action==TEXT("retry-original"))Matches->RetryOriginal();else if(Action==TEXT("submit-original-ranked-result"))Matches->SubmitRankedResult(Amount,Data);else if(Action==TEXT("confirm-recovered-create"))return Matches->ConfirmRecoveredCreate(Id);else if(Action==TEXT("acknowledge-after-refresh"))return Matches->AcknowledgeAfterRefresh();else Matches->StartAction(Action,Id,Revision,Data,Target.IsEmpty()?TArray<FString>():TArray<FString>{Target},Flag);
+        if(Action==TEXT("read"))Matches->Refresh(Id);else if(Action==TEXT("find-open-page"))Matches->FindOpen(0,9007199254740991LL,Request);else if(Action==TEXT("create")){FHorizonMatchCreateInput Input;Input.Name=SeagullLab::Text(A,TEXT("name"));Input.Capacity=static_cast<int32>(Capacity);Input.Strength=Strength;Input.TurnSeconds=static_cast<int32>(Turn);Input.Visibility=SeagullLab::Text(A,TEXT("visibility"),TEXT("private"));Input.TimeoutPolicy=SeagullLab::Text(A,TEXT("timeoutPolicy"),TEXT("skip"));Input.Data=Data;Input.bRanked=Flag;Input.InviteeIds=Ids;if(!A->HasField(TEXT("ids"))&&!Target.IsEmpty())Input.InviteeIds.Add(Target);Matches->CreateLobby(Input);}else if(Action==TEXT("recover-original-ranked-source"))Matches->StartRankedFromPendingResult(Id);else if(Action==TEXT("retry-original"))Matches->RetryOriginal();else if(Action==TEXT("submit-original-ranked-result"))Matches->SubmitRankedResult(Amount,Data);else if(Action==TEXT("confirm-recovered-create"))return Matches->ConfirmRecoveredCreate(Id);else if(Action==TEXT("acknowledge-after-refresh"))return Matches->AcknowledgeAfterRefresh();else Matches->StartAction(Action,Id,Revision,Data,Ids,Flag);
     }
     else if(Feature==TEXT("Shared Objects"))
     {

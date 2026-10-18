@@ -265,3 +265,5 @@ Code: [MIT](LICENSE). Font and artwork provenance: [THIRD-PARTY-NOTICES.md](THIR
 ## Integrated Develop feature update (in progress)
 
 The complete official SDK is pinned to merged Develop35df7fe. Gift redemption now prepares and persists the official V2 tuple before a separate explicit confirm. An uncertain response keeps that exact tuple for retry; current server balances remain separate from practice coins. Existing legacy local save fields remain readable. No V1 request or local reward application is used by the updated gift panel. Native acceptance of the new integration is pending; the earlier acceptance numbers above describe the previous SDK snapshot.
+
+The current feature Lab accepts the complete `ids` array for Match `start` (turn order) and `result` (sorted winner IDs). An explicit empty winner list can represent a draw; omitted arrays are rejected. `create` can likewise carry all invitees in `ids`. The final-state revision/result bytes remain the original values on retry. Four complete unchanged public read guides are under `Source/SeagullStorm/PublicFeatureGuides`, with exact Dashboard source hashes.

@@ -23,6 +23,11 @@ for name, digest in lock["files"].items():
     check(path.is_file() and hashlib.sha256(path.read_bytes()).hexdigest() == digest, "SDK hash: " + name)
 check(json.loads((plugin / "HorizonSDK.uplugin").read_text())["VersionName"] == lock["descriptorVersion"], "SDK version")
 project = json.loads((ROOT / "SeagullStorm.uproject").read_text())
+guides=ROOT/'Source/SeagullStorm/PublicFeatureGuides'
+guide_proof=json.loads((guides/'SOURCE.json').read_text())
+check(guide_proof['sdk']==lock['commit'],'Public guide SDK pin')
+for name,proof in guide_proof['files'].items():
+    check(hashlib.sha256((guides/name).read_bytes()).hexdigest()==proof['sha256'],'Unchanged public guide: '+name)
 check(project["EngineAssociation"] == "5.8", "Engine association")
 manifest = json.loads((ROOT / "Content" / "Textures" / "asset-manifest.json").read_text())
 for record in manifest:
