@@ -16,6 +16,7 @@ class USeagullGiftCodePanel : public UUserWidget
 public:
 	virtual void NativeOnInitialized() override;
 	virtual void NativeConstruct() override;
+    virtual void NativeTick(const FGeometry& Geometry,float DeltaTime) override;
 
 protected:
 	UPROPERTY(meta = (BindWidgetOptional))
@@ -27,15 +28,20 @@ protected:
 	UPROPERTY(meta = (BindWidgetOptional))
 	UButton* CloseButton = nullptr;
 
+    UPROPERTY() UButton* ConfirmButton = nullptr;
+
 	UPROPERTY(meta = (BindWidgetOptional))
 	UTextBlock* StatusText = nullptr;
 
 private:
 	bool bRedeeming = false;
+    bool bObservedBusy = false;
 	void CompleteRequest(const FString& Message);
 
 	UFUNCTION()
 	void OnRedeemClicked();
+
+    UFUNCTION() void OnConfirmClicked();
 
 	UFUNCTION()
 	void OnCloseClicked();

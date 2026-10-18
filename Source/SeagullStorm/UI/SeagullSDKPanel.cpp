@@ -1,4 +1,5 @@
 #include "UI/SeagullSDKPanel.h"
+#include "UI/SeagullFeatureLab.h"
 #include "UI/SeagullWidgetStyles.h"
 #include "Core/SeagullGameInstance.h"
 #include "Core/SeagullTypes.h"
@@ -80,6 +81,8 @@ void USeagullSDKPanel::NativeOnInitialized()
         FeatureRow->AddChildToWrapBox(Button);
     }
     SeagullWidgetStyles::AddRow(Column, FeatureRow);
+    UButton* Lab = SeagullWidgetStyles::MakeTextButton(WidgetTree, TEXT("Current feature lab / nine integrated features"), SeagullColors::Orange, SeagullColors::DarkText, 18);
+    Lab->OnClicked.AddDynamic(this, &USeagullSDKPanel::OnFeatureLab); SeagullWidgetStyles::AddRow(Column, Lab);
     UButton* Profile = SeagullWidgetStyles::MakeTextButton(WidgetTree, TEXT("Read player profile"), SeagullColors::Teal, SeagullColors::LightText, 16);
     Profile->OnClicked.AddDynamic(this, &USeagullSDKPanel::OnProfile);
     SeagullWidgetStyles::AddRow(Column, Profile);
@@ -274,3 +277,5 @@ void USeagullSDKPanel::OnSendEmail()
         Panel->ShowResult(Status, Ok);
     });
 }
+
+void USeagullSDKPanel::OnFeatureLab(){if(auto* Lab=CreateWidget<USeagullFeatureLab>(GetOwningPlayer()))Lab->AddToViewport(150);}
