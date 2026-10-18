@@ -23,6 +23,10 @@ public class SeagullStorm : ModuleRules
             "JsonUtilities"
         });
 
+        // Development acceptance observes actual HTTP completion through the engine module.
+        if (Target.Configuration != UnrealTargetConfiguration.Shipping)
+            PrivateDependencyModuleNames.Add("HTTP");
+
         // Development automation exports real JSON reports from packaged clients.
         if (Target.Configuration != UnrealTargetConfiguration.Shipping)
             RuntimeDependencies.Add("$(EngineDir)/Content/Automation/Report-Template.html", StagedFileType.NonUFS);
