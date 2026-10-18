@@ -170,8 +170,32 @@ void USeagullFeatureLab::ShowSnapshot()
     Status->SetText(FText::FromString(Text.IsEmpty()?TEXT("Read the current feature explicitly first."):Text.Left(12000)+TEXT("\n[Display preview only; the SDK snapshot and original are unchanged.]")));
 }
 void USeagullFeatureLab::Connect(){if(auto* GI=Cast<USeagullGameInstance>(GetGameInstance())){GI->GetHorizonManager()->ConnectToServer();Status->SetText(FText::FromString(TEXT("Explicit connection started; no signup. Restore or create a player separately.")));}}
-void USeagullFeatureLab::Restore(){if(auto* GI=Cast<USeagullGameInstance>(GetGameInstance())){TWeakObjectPtr<USeagullFeatureLab> Weak(this);GI->GetHorizonManager()->RestoreSession([Weak](bool Ok){if(auto* W=Weak.Get())W->Status->SetText(FText::FromString(Ok?TEXT("Existing player restored. Read current features explicitly."):TEXT("Restore failed; original identity retained, no replacement created.")));});}}
-void USeagullFeatureLab::CreateGuest(){if(auto* GI=Cast<USeagullGameInstance>(GetGameInstance())){TWeakObjectPtr<USeagullFeatureLab> Weak(this);GI->GetHorizonManager()->SignUpAnonymous(TEXT("SeagullHello"),[Weak](bool Ok){if(auto* W=Weak.Get())W->Status->SetText(FText::FromString(Ok?TEXT("Player connected."):TEXT("Creation refused or uncertain. Reconcile protected identity before another signup.")));});}}
+void USeagullFeatureLab::Restore()
+{
+    if(auto* GI=Cast<USeagullGameInstance>(GetGameInstance()))
+    {
+        TWeakObjectPtr<USeagullFeatureLab> Weak(this);TWeakObjectPtr<USeagullGameInstance> Owner(GI);
+        GI->GetHorizonManager()->RestoreSession([Weak,Owner](bool Ok)
+        {
+            if(Ok&&Owner.IsValid())Owner->BeginOnlineSession(false);
+            if(auto* W=Weak.Get())W->Status->SetText(FText::FromString(Ok?TEXT("Existing player restored. Read current features explicitly."):TEXT("Restore failed; original identity retained, no replacement created.")));
+        });
+    }
+}
+void USeagullFeatureLab::CreateGuest()
+{
+    if(auto* GI=Cast<USeagullGameInstance>(GetGameInstance()))
+    {
+        auto* HM=GI->GetHorizonManager();
+        if(HM->IsSignedIn()||HM->HasProtectedGuestIdentity()){Status->SetText(FText::FromString(TEXT("An existing/protected identity is present. Restore it explicitly; no new player was created.")));return;}
+        TWeakObjectPtr<USeagullFeatureLab> Weak(this);TWeakObjectPtr<USeagullGameInstance> Owner(GI);
+        HM->SignUpAnonymous(TEXT("SeagullHello"),[Weak,Owner](bool Ok)
+        {
+            if(Ok&&Owner.IsValid())Owner->BeginOnlineSession(true);
+            if(auto* W=Weak.Get())W->Status->SetText(FText::FromString(Ok?TEXT("Player connected."):TEXT("Creation refused or uncertain. Reconcile protected identity before another signup.")));
+        });
+    }
+}
 void USeagullFeatureLab::MarketplaceFinished(bool Success,const FString& Code){Status->SetText(FText::FromString(Success?TEXT("Marketplace original confirmed and current Inventory/PlayerValues/Marketplace refreshed."):TEXT("Original retained: ")+Code));}
 void USeagullFeatureLab::ClearRecipes(){for(AActor* Actor:{static_cast<AActor*>(Friends),static_cast<AActor*>(Groups),static_cast<AActor*>(Items),static_cast<AActor*>(Shared),static_cast<AActor*>(Matches),static_cast<AActor*>(Inbox),static_cast<AActor*>(Achievements),static_cast<AActor*>(Chat)})if(IsValid(Actor))Actor->Destroy();Friends=nullptr;Groups=nullptr;Items=nullptr;Shared=nullptr;Matches=nullptr;Inbox=nullptr;Achievements=nullptr;Chat=nullptr;Marketplace=nullptr;BoundMarketProject.Reset();}
 void USeagullFeatureLab::NativeDestruct(){ClearRecipes();Super::NativeDestruct();}
