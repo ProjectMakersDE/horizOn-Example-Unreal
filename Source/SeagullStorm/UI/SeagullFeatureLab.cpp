@@ -6,6 +6,8 @@
 #include "HorizonSubsystem.h"
 #include "Managers/HorizonAuthManager.h"
 #include "Managers/HorizonMarketplaceManager.h"
+#include "Managers/HorizonPlayerValuesManager.h"
+#include "Managers/HorizonStatisticsManager.h"
 #include "Examples/HorizonFriendsExample.h"
 #include "Examples/HorizonGroupsExample.h"
 #include "Examples/HorizonItemsExample.h"
@@ -79,13 +81,16 @@ void USeagullFeatureLab::NativeOnInitialized()
     auto* Connection=SeagullWidgetStyles::MakeTextButton(WidgetTree,TEXT("Connect (no signup)"),SeagullColors::Teal,SeagullColors::LightText,16);Connection->OnClicked.AddDynamic(this,&USeagullFeatureLab::Connect);Auth->AddChildToWrapBox(Connection);
     auto* Restoration=SeagullWidgetStyles::MakeTextButton(WidgetTree,TEXT("Restore original identity"),SeagullColors::Teal,SeagullColors::LightText,16);Restoration->OnClicked.AddDynamic(this,&USeagullFeatureLab::Restore);Auth->AddChildToWrapBox(Restoration);
     auto* Guest=SeagullWidgetStyles::MakeTextButton(WidgetTree,TEXT("Create guest explicitly"),SeagullColors::Teal,SeagullColors::LightText,16);Guest->OnClicked.AddDynamic(this,&USeagullFeatureLab::CreateGuest);Auth->AddChildToWrapBox(Guest);
+    auto* Reads=WidgetTree->ConstructWidget<UWrapBox>();SeagullWidgetStyles::AddRow(Column,Reads);
+    auto* Values=SeagullWidgetStyles::MakeTextButton(WidgetTree,TEXT("Read authoritative player values"),SeagullColors::Teal,SeagullColors::LightText,16,TEXT("HelloReadPlayerValues"));Values->OnClicked.AddDynamic(this,&USeagullFeatureLab::ReadPlayerValues);Reads->AddChildToWrapBox(Values);
+    auto* Statistics=SeagullWidgetStyles::MakeTextButton(WidgetTree,TEXT("Read statistics"),SeagullColors::Teal,SeagullColors::LightText,16,TEXT("HelloReadStatistics"));Statistics->OnClicked.AddDynamic(this,&USeagullFeatureLab::ReadStatistics);Reads->AddChildToWrapBox(Statistics);
     ProjectInput=SeagullWidgetStyles::MakeTextInput(WidgetTree,TEXT("Stable project UUID from project settings (Marketplace only; bound once per key)"));SeagullWidgetStyles::AddRow(Column,ProjectInput);
     FeatureInput=WidgetTree->ConstructWidget<UComboBoxString>();for(const auto& Pair:SeagullLab::Actions())FeatureInput->AddOption(Pair.Key);FeatureInput->OnSelectionChanged.AddDynamic(this,&USeagullFeatureLab::SelectFeature);SeagullWidgetStyles::AddRow(Column,FeatureInput);
     ActionInput=WidgetTree->ConstructWidget<UComboBoxString>();SeagullWidgetStyles::AddRow(Column,ActionInput);
     ArgumentsInput=WidgetTree->ConstructWidget<UMultiLineEditableTextBox>();FTextBlockStyle ArgumentStyle=ArgumentsInput->WidgetStyle.TextStyle;ArgumentStyle.SetFont(SeagullWidgetStyles::GetPixelFont(16));ArgumentStyle.SetColorAndOpacity(FSlateColor(SeagullColors::DarkText));ArgumentsInput->SetTextStyle(ArgumentStyle);ArgumentsInput->SetForegroundColor(SeagullColors::DarkText);ArgumentsInput->SetText(FText::FromString(TEXT("{\"id\":\"\",\"target\":\"\",\"key\":\"\",\"requestId\":\"\",\"revision\":\"0\",\"name\":\"Seagulls\",\"description\":\"\",\"mode\":\"open\",\"dataJson\":\"{}\",\"base64\":\"\",\"collection\":\"levels\",\"price\":\"10\",\"duration\":\"3600\",\"amount\":\"-1\",\"text\":\"Hello from Seagull Storm\",\"flag\":false}")));SeagullWidgetStyles::AddRow(Column,ArgumentsInput);
     auto* Run=SeagullWidgetStyles::MakeTextButton(WidgetTree,TEXT("Run selected explicit action"),SeagullColors::Orange,SeagullColors::DarkText,18);Run->OnClicked.AddDynamic(this,&USeagullFeatureLab::RunSelected);SeagullWidgetStyles::AddRow(Column,Run);
     auto* Snapshot=SeagullWidgetStyles::MakeTextButton(WidgetTree,TEXT("Show current cached snapshot (no request)"),SeagullColors::Teal,SeagullColors::LightText,16);Snapshot->OnClicked.AddDynamic(this,&USeagullFeatureLab::ShowSnapshot);SeagullWidgetStyles::AddRow(Column,Snapshot);
-    Status=SeagullWidgetStyles::MakeText(WidgetTree,TEXT("No feature action has run. Async actions log exact errors; invoke Show snapshot after completion."),16,SeagullColors::LightText);Status->SetAutoWrapText(true);SeagullWidgetStyles::AddRow(Column,Status);
+    Status=SeagullWidgetStyles::MakeText(WidgetTree,TEXT("No feature action has run. Async actions log exact errors; invoke Show snapshot after completion."),16,SeagullColors::LightText,TEXT("HelloFeatureStatus"));Status->SetAutoWrapText(true);SeagullWidgetStyles::AddRow(Column,Status);
     auto* Back=SeagullWidgetStyles::MakeTextButton(WidgetTree,TEXT("Back to game"),SeagullColors::Orange,SeagullColors::DarkText,18);Back->OnClicked.AddDynamic(this,&USeagullFeatureLab::Close);SeagullWidgetStyles::AddRow(Column,Back);
     FeatureInput->SetSelectedOption(TEXT("Achievements"));
 }
@@ -96,6 +101,28 @@ UHorizonSubsystem* USeagullFeatureLab::Session()const
     return GI&&!GI->bPracticeMode&&S&&S->Auth&&S->Auth->IsSignedIn()&&S->Auth->GetCurrentUser().AccessToken==S->GetHttpClient()->GetSessionToken()?S:nullptr;
 }
 void USeagullFeatureLab::RunSelected(){FString Error;const bool Accepted=Execute(FeatureInput->GetSelectedOption(),ActionInput->GetSelectedOption(),ArgumentsInput->GetText().ToString(),Error);Status->SetText(FText::FromString(Accepted?TEXT("Explicit action invoked. Wait for SDK completion, then show the snapshot. Invocation alone is not a committed result; any uncertain original remains protected."):Error));}
+void USeagullFeatureLab::ReadPlayerValues()
+{
+    auto* SDK=Session();if(!SDK){Status->SetText(FText::FromString(TEXT("SESSION_REQUIRED")));return;}
+    const uint64 Context=SDK->GetHttpClient()->GetRequestContextEpoch();const FString User=SDK->Auth->GetCurrentUser().UserId;
+    Status->SetText(FText::FromString(TEXT("Reading authoritative player values...")));
+    SDK->PlayerValues->GetState(User,FOnPlayerValuesComplete::CreateWeakLambda(this,[this,Context,User](bool Ok,const FHorizonPlayerValuesState& State,const FString& Code,const FString&)
+    {
+        auto* Current=Session();if(!IsInViewport()||!Current||Current->GetHttpClient()->GetRequestContextEpoch()!=Context||Current->Auth->GetCurrentUser().UserId!=User)return;
+        Status->SetText(FText::FromString(Ok?SeagullLab::Json(State):TEXT("Player values read refused: ")+Code+TEXT(". Saved originals remain protected.")));
+    }));
+}
+void USeagullFeatureLab::ReadStatistics()
+{
+    auto* SDK=Session();if(!SDK){Status->SetText(FText::FromString(TEXT("SESSION_REQUIRED")));return;}
+    const uint64 Context=SDK->GetHttpClient()->GetRequestContextEpoch();const FString User=SDK->Auth->GetCurrentUser().UserId;
+    Status->SetText(FText::FromString(TEXT("Reading authoritative statistics...")));
+    SDK->Statistics->GetStatistics(FOnStatisticsLoaded::CreateWeakLambda(this,[this,Context,User](bool Ok,const FHorizonStatisticsSnapshot& State,const FString& Code,const FString&)
+    {
+        auto* Current=Session();if(!IsInViewport()||!Current||Current->GetHttpClient()->GetRequestContextEpoch()!=Context||Current->Auth->GetCurrentUser().UserId!=User)return;
+        Status->SetText(FText::FromString(Ok?SeagullLab::Json(State):TEXT("Statistics read refused: ")+Code+TEXT(". Saved originals remain protected.")));
+    }));
+}
 bool USeagullFeatureLab::BindMarketplace(FString& Error)
 {
     auto* S=Session();if(!S){Error=TEXT("SESSION_REQUIRED");return false;}
