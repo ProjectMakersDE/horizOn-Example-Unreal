@@ -37,5 +37,6 @@ private:
     UFUNCTION() void OnGerman();
     UFUNCTION() void OnCloudSave();
     UFUNCTION() void OnClose();
+    UFUNCTION() void OnFeatureLab();
     void LoadLanguage(const FString& Language);
 };
