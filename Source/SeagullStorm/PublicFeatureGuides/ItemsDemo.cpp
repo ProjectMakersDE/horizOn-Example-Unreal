@@ -35,5 +35,7 @@ void ReadCatalogPage(UHorizonSubsystem* SDK)
         }), TEXT(""), 1);
 }
 // SDK Examples/HorizonItemsExample.h journals original instance/body/revision before writes.
-// Purchase recovery retains the original Player Values operationId and item references.
-// Refresh the current inventory after success; never grant or purchase a replacement locally.
+// Purchase recovery keeps the original Player Values operationId.
+// Initial success may include item references; retained replay may return empty applied/items.
+// Read the current inventory separately. Never reconstruct earlier item references.
+// A failed refresh never authorizes another purchase or a local item grant.

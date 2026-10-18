@@ -1,7 +1,7 @@
 {
   "sdk": "35df7fe2e3c073ed372cdc872a891c79a6f18695",
   "dashboardBase": "bfa5b2dfc0b4b882d73e34f33cffd74a61193ce9",
-  "sourceManifestSha256": "6f7fadd53010a1d56433db0b5048b6bdadd29464435ffa1e7e7823f594389ba0",
+  "sourceManifestSha256": "72d4bfe1cbd7b34d76d0ec6f98df9916560262dba5fa68e2dfce3256d5789939",
   "files": {
     "GroupsDemo.cpp": {
       "feature": "groups",
@@ -9,7 +9,7 @@
     },
     "ItemsDemo.cpp": {
       "feature": "items",
-      "sha256": "288a7919bdb108286e0ff7423d010595e123688f870193f3e98b50d3e463b85e"
+      "sha256": "86df980fed049de20b377edd633efedc09ae997f12833372d697cc01f99c6e3a"
     },
     "MatchesDemo.cpp": {
       "feature": "matches",
@@ -19,5 +19,6 @@
       "feature": "shared-objects",
       "sha256": "1d10ab5e085faad17973a112f6bd70d212dec95d80393c9e9e527738af1d3c8a"
     }
-  }
+  },
+  "commentOnlyNativeEquivalence": "Prior native3533: identical executable lines; only Items replay explanation changed"
 }
