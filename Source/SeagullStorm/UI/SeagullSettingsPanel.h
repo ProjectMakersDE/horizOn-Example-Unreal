@@ -1,14 +1,14 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Blueprint/UserWidget.h"
+#include "UI/SeagullMenu.h"
 #include "SeagullSettingsPanel.generated.h"
 
 class UButton;
 class UTextBlock;
 
 UCLASS()
-class USeagullSettingsPanel : public UUserWidget
+class USeagullSettingsPanel : public USeagullMenu
 {
 	GENERATED_BODY()
 

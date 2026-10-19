@@ -106,6 +106,8 @@ void USeagullSDKPanel::NativeOnInitialized()
     UButton* Close = SeagullWidgetStyles::MakeTextButton(WidgetTree, TEXT("Back to the flock"), SeagullColors::Orange, SeagullColors::DarkText, 20);
     Close->OnClicked.AddDynamic(this, &USeagullSDKPanel::OnClose);
     SeagullWidgetStyles::AddRow(Column, Close);
+    SetMenuFirstFocus(BoardInput);
+    SetMenuBack(FSimpleDelegate::CreateUObject(this,&USeagullSDKPanel::OnClose));
 }
 
 void USeagullSDKPanel::NativeTick(const FGeometry& Geometry, float DeltaTime)

@@ -46,6 +46,8 @@ void USeagullPlayerValuesPanel::NativeOnInitialized()
     Button(TEXT("Retry saved original operation"), TEXT("ValuesRetry"))->OnClicked.AddDynamic(this,&USeagullPlayerValuesPanel::OnRetry);
     Button(TEXT("Back to the flock"), TEXT("ValuesClose"))->OnClicked.AddDynamic(this,&USeagullPlayerValuesPanel::OnClose);
     Context = CurrentContext();
+    SetMenuFirstFocus(GetWidgetFromName(TEXT("ValuesRefresh")));
+    SetMenuBack(FSimpleDelegate::CreateUObject(this,&USeagullPlayerValuesPanel::OnClose));
 }
 FString USeagullPlayerValuesPanel::CurrentContext() const
 {

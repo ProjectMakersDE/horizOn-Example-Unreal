@@ -1,7 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Blueprint/UserWidget.h"
+#include "UI/SeagullMenu.h"
 #include "Core/SeagullTypes.h"
 #include "SeagullLevelUpOverlay.generated.h"
 
@@ -9,7 +9,7 @@ class UButton;
 class UTextBlock;
 
 UCLASS()
-class USeagullLevelUpOverlay : public UUserWidget
+class USeagullLevelUpOverlay : public USeagullMenu
 {
 	GENERATED_BODY()
 

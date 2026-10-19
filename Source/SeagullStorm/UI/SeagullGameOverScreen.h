@@ -1,14 +1,14 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Blueprint/UserWidget.h"
+#include "UI/SeagullMenu.h"
 #include "SeagullGameOverScreen.generated.h"
 
 class UButton;
 class UTextBlock;
 
 UCLASS()
-class USeagullGameOverScreen : public UUserWidget
+class USeagullGameOverScreen : public USeagullMenu
 {
 	GENERATED_BODY()
 

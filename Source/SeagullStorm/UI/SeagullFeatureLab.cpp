@@ -1,4 +1,5 @@
 #include "UI/SeagullFeatureLab.h"
+#include "Examples/HorizonChatExampleWidget.h"
 #include "GameFramework/PlayerController.h"
 #include "UI/SeagullWidgetStyles.h"
 #include "Core/SeagullTypes.h"
@@ -94,6 +95,8 @@ void USeagullFeatureLab::NativeOnInitialized()
     Status=SeagullWidgetStyles::MakeText(WidgetTree,TEXT("No feature action has run. Async actions log exact errors; invoke Show snapshot after completion."),16,SeagullColors::LightText,TEXT("HelloFeatureStatus"));Status->SetAutoWrapText(true);SeagullWidgetStyles::AddRow(Column,Status);
     auto* Back=SeagullWidgetStyles::MakeTextButton(WidgetTree,TEXT("Back to game"),SeagullColors::Orange,SeagullColors::DarkText,18);Back->OnClicked.AddDynamic(this,&USeagullFeatureLab::Close);SeagullWidgetStyles::AddRow(Column,Back);
     FeatureInput->SetSelectedOption(TEXT("Achievements"));
+    SetMenuFirstFocus(FeatureInput);
+    SetMenuBack(FSimpleDelegate::CreateUObject(this,&USeagullFeatureLab::Close));
 }
 void USeagullFeatureLab::SelectFeature(FString Selected,ESelectInfo::Type){ActionInput->ClearOptions();if(const auto* Actions=SeagullLab::Actions().Find(Selected)){for(const auto& A:*Actions)ActionInput->AddOption(A);ActionInput->SetSelectedIndex(0);}}
 UHorizonSubsystem* USeagullFeatureLab::Session()const
@@ -198,7 +201,15 @@ bool USeagullFeatureLab::Execute(const FString& Feature,const FString& Action,co
     else if(Feature==TEXT("Chat"))
     {
         if(!Chat)Chat=GetWorld()->SpawnActor<AHorizonChatExample>();
-        if(Action==TEXT("open-project")){FHorizonChatOpenInput Input;Input.Kind=TEXT("project");Chat->Open(Input);}else if(Action==TEXT("show-chat-ui"))Chat->ShowUI();else if(Action==TEXT("send-original-text"))Chat->SendText(SeagullLab::Text(A,TEXT("text")));else if(Action==TEXT("look-up-original"))Chat->ReconcileOriginal();else if(Action==TEXT("retry-original"))Chat->RetryOriginal();else if(Action==TEXT("report-original"))Chat->Report(Id,SeagullLab::Text(A,TEXT("text")));else Chat->CloseChannel();
+        if(Action==TEXT("open-project")){FHorizonChatOpenInput Input;Input.Kind=TEXT("project");Chat->Open(Input);}else if(Action==TEXT("show-chat-ui"))
+        {
+            if(!ChatPanel||!ChatPanel->IsInViewport())
+            {
+                ChatPanel=CreateWidget<USeagullChatPanel>(GetOwningPlayer());
+                if(ChatPanel){ChatPanel->BindExample(Chat);ChatPanel->AddToViewport(200);}
+            }
+        }
+        else if(Action==TEXT("send-original-text"))Chat->SendText(SeagullLab::Text(A,TEXT("text")));else if(Action==TEXT("look-up-original"))Chat->ReconcileOriginal();else if(Action==TEXT("retry-original"))Chat->RetryOriginal();else if(Action==TEXT("report-original"))Chat->Report(Id,SeagullLab::Text(A,TEXT("text")));else Chat->CloseChannel();
     }
     return true;
 }
@@ -238,22 +249,30 @@ void USeagullFeatureLab::CreateGuest()
 }
 void USeagullFeatureLab::MarketplaceFinished(bool Success,const FString& Code){Status->SetText(FText::FromString(Success?TEXT("Marketplace original confirmed and current Inventory/PlayerValues/Marketplace refreshed."):TEXT("Original retained: ")+Code));}
 void USeagullFeatureLab::ClearRecipes(){for(AActor* Actor:{static_cast<AActor*>(Friends),static_cast<AActor*>(Groups),static_cast<AActor*>(Items),static_cast<AActor*>(Shared),static_cast<AActor*>(Matches),static_cast<AActor*>(Inbox),static_cast<AActor*>(Achievements),static_cast<AActor*>(Chat)})if(IsValid(Actor))Actor->Destroy();Friends=nullptr;Groups=nullptr;Items=nullptr;Shared=nullptr;Matches=nullptr;Inbox=nullptr;Achievements=nullptr;Chat=nullptr;Marketplace=nullptr;BoundMarketProject.Reset();}
-void USeagullFeatureLab::NativeDestruct(){ClearRecipes();Super::NativeDestruct();}
-void USeagullFeatureLab::FocusControls()
-{
-    if(auto* PC=GetOwningPlayer())
-    {
-        PC->bShowMouseCursor=true;
-        FInputModeUIOnly Mode;Mode.SetWidgetToFocus(FeatureInput->TakeWidget());PC->SetInputMode(Mode);
-    }
-}
+void USeagullFeatureLab::NativeDestruct(){if(ChatPanel)ChatPanel->RemoveFromParent();ChatPanel=nullptr;ClearRecipes();Super::NativeDestruct();}
+void USeagullFeatureLab::FocusControls(){FocusMenu();}
 void USeagullFeatureLab::Close(){RemoveFromParent();OnClosed.ExecuteIfBound();}
+
+void USeagullChatPanel::NativeOnInitialized()
+{
+    Super::NativeOnInitialized();
+    auto* Panel=SeagullWidgetStyles::MakePanel(WidgetTree,SeagullColors::PanelBG,24);WidgetTree->RootWidget=Panel;
+    auto* Scroll=WidgetTree->ConstructWidget<UScrollBox>();Panel->SetContent(Scroll);
+    auto* Column=WidgetTree->ConstructWidget<UVerticalBox>();Scroll->AddChild(Column);
+    Body=CreateWidget<UHorizonChatExampleWidget>(GetOwningPlayer());
+    if(Body)SeagullWidgetStyles::AddRow(Column,Body);
+    auto* Back=SeagullWidgetStyles::MakeTextButton(WidgetTree,TEXT("Back to feature lab"),SeagullColors::Orange,SeagullColors::DarkText);
+    Back->OnClicked.AddDynamic(this,&USeagullChatPanel::Close);SeagullWidgetStyles::AddRow(Column,Back);
+    SetMenuBack(FSimpleDelegate::CreateUObject(this,&USeagullChatPanel::Close));
+}
+void USeagullChatPanel::BindExample(AHorizonChatExample* Example){if(Body)Body->Example=Example;}
+void USeagullChatPanel::Close(){RemoveFromParent();}
 
 void ASeagullFeaturesHelloGameMode::BeginPlay()
 {
     Super::BeginPlay();
     if(auto* PC=UGameplayStatics::GetPlayerController(this,0))
     {
-        if(auto* Lab=CreateWidget<USeagullFeatureLab>(PC)){Lab->AddToViewport(100);PC->bShowMouseCursor=true;FInputModeUIOnly Mode;Mode.SetWidgetToFocus(Lab->TakeWidget());PC->SetInputMode(Mode);}
+        if(auto* Lab=CreateWidget<USeagullFeatureLab>(PC)){Lab->AddToViewport(100);Lab->FocusMenu();}
     }
 }
