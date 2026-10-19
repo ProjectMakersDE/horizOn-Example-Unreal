@@ -15,23 +15,24 @@ void RunReviewedAchievementsDemo(UGameInstance* GameInstance)
     const auto GetGameInstance = [GameInstance]() { return GameInstance; };
     UHorizonSubsystem* SDK = GetGameInstance()->GetSubsystem<UHorizonSubsystem>();
     const FString UserId = SDK->Auth->GetCurrentUser().UserId;
-    SDK->Achievements->GetAchievements(UserId, FOnAchievementsComplete::CreateLambda(
-        [](bool bSuccess, const FHorizonAchievementsSnapshot& Snapshot,
+    SDK->Achievements->GetAchievements(UserId, FOnAchievementsComplete::CreateWeakLambda(SDK,
+        [SDK, UserId](bool bSuccess, const FHorizonAchievementsSnapshot& Snapshot,
             const FString& Code, const FString& Message)
         {
             if (!bSuccess) { UE_LOG(LogTemp, Warning, TEXT("Achievements: %s"), *Code); return; }
             for (const auto& Progress : Snapshot.Progress)
                 UE_LOG(LogTemp, Log, TEXT("%s: %s"), *Progress.Key, *Progress.RewardState);
-        }));
-    // On a matching game action, unlock configured manual first_steps. Retry this same key.
-    SDK->Achievements->Unlock(UserId, TEXT("first_steps"), FOnAchievementUnlockComplete::CreateLambda(
-        [](bool bSuccess, const FHorizonAchievementUnlockResponse& Result,
-            const FString& Code, const FString& Message)
-        {
-            if (!bSuccess) { UE_LOG(LogTemp, Warning, TEXT("Keep original key: %s"), *Code); return; }
-            // Complete progress means rewards already committed with the unlock.
-            // Refresh PlayerValues explicitly when displaying the current balance.
-            UE_LOG(LogTemp, Log, TEXT("New unlocks: %d"), Result.NewlyUnlocked.Num());
+            // This reviewed game action unlocks manual first_steps after the read succeeds.
+            // Retry this same key after an uncertain reply.
+            SDK->Achievements->Unlock(UserId, TEXT("first_steps"), FOnAchievementUnlockComplete::CreateWeakLambda(SDK,
+                [](bool bSuccess, const FHorizonAchievementUnlockResponse& Result,
+                    const FString& Code, const FString& Message)
+                {
+                    if (!bSuccess) { UE_LOG(LogTemp, Warning, TEXT("Keep original key: %s"), *Code); return; }
+                    // Complete progress means rewards already committed with the unlock.
+                    // Refresh PlayerValues explicitly when displaying the current balance.
+                    UE_LOG(LogTemp, Log, TEXT("New unlocks: %d"), Result.NewlyUnlocked.Num());
+                }));
         }));
     // No Inbox claim or local value credit. A lost reply is retried with the original key.
 }
