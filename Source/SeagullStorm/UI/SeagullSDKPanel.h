@@ -7,6 +7,7 @@
 class UTextBlock;
 class UEditableTextBox;
 class USeagullHorizonManager;
+class UButton;
 
 /** Small interactive reference for the SDK APIs used by the game. */
 UCLASS()
@@ -22,6 +23,7 @@ private:
     UPROPERTY() UEditableTextBox* BoardInput = nullptr;
     UPROPERTY() UEditableTextBox* AvatarInput = nullptr;
     UPROPERTY() UEditableTextBox* EmailTemplateInput = nullptr;
+    UPROPERTY() UButton* FeatureLabButton = nullptr;
     UFUNCTION() void OnProfile();
     UFUNCTION() void OnApplyAvatar();
     UFUNCTION() void OnSendEmail();
