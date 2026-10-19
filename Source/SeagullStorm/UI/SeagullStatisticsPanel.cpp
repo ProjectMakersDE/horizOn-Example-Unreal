@@ -28,6 +28,8 @@ void USeagullStatisticsPanel::NativeOnInitialized()
     auto* Demo=Button(TEXT("Hello only: report 3 kills / 1 round / score 1200"),TEXT("StatisticsDemo")); Demo->OnClicked.AddDynamic(this,&USeagullStatisticsPanel::OnDemo);
     Demo->SetVisibility(bHelloDemo?ESlateVisibility::Visible:ESlateVisibility::Collapsed);
     Button(TEXT("Back to the flock"),TEXT("StatisticsClose"))->OnClicked.AddDynamic(this,&USeagullStatisticsPanel::OnClose); Render();
+    SetMenuFirstFocus(GetWidgetFromName(TEXT("StatisticsRefresh")));
+    SetMenuBack(FSimpleDelegate::CreateUObject(this,&USeagullStatisticsPanel::OnClose));
 }
 void USeagullStatisticsPanel::NativeTick(const FGeometry& Geometry,float Delta)
 { Super::NativeTick(Geometry,Delta); RenderAfter-=Delta; if (RenderAfter<=0) { RenderAfter=.2f; Render(); } }

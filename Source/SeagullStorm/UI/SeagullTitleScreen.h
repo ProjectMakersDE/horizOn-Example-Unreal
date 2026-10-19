@@ -1,7 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Blueprint/UserWidget.h"
+#include "UI/SeagullMenu.h"
 #include "SeagullTitleScreen.generated.h"
 
 class UButton;
@@ -10,7 +10,7 @@ class UEditableTextBox;
 class UImage;
 
 UCLASS()
-class USeagullTitleScreen : public UUserWidget
+class USeagullTitleScreen : public USeagullMenu
 {
 	GENERATED_BODY()
 

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Blueprint/UserWidget.h"
+#include "UI/SeagullMenu.h"
 #include "Models/HorizonNewsEntry.h"
 #include "SeagullMainHub.generated.h"
 
@@ -10,7 +10,7 @@ class UTextBlock;
 class UVerticalBox;
 
 UCLASS()
-class USeagullMainHub : public UUserWidget
+class USeagullMainHub : public USeagullMenu
 {
 	GENERATED_BODY()
 

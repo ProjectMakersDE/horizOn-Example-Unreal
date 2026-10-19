@@ -1,7 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Blueprint/UserWidget.h"
+#include "UI/SeagullMenu.h"
 #include "SeagullSDKPanel.generated.h"
 
 class UTextBlock;
@@ -11,7 +11,7 @@ class UButton;
 
 /** Small interactive reference for the SDK APIs used by the game. */
 UCLASS()
-class USeagullSDKPanel : public UUserWidget
+class USeagullSDKPanel : public USeagullMenu
 {
     GENERATED_BODY()
 public:

@@ -65,6 +65,8 @@ void USeagullNewsPanel::NativeOnInitialized()
 	CloseButton = SeagullWidgetStyles::MakeTextButton(WidgetTree, TEXT("Close"),
 		SeagullColors::Teal, SeagullColors::LightText, SeagullWidgetStyles::TextFontSize, TEXT("CloseButton"));
 	SeagullWidgetStyles::AddRow(Column, CloseButton, 8.f);
+    SetMenuFirstFocus(CloseButton);
+    SetMenuBack(FSimpleDelegate::CreateUObject(this,&USeagullNewsPanel::OnCloseClicked));
 }
 
 void USeagullNewsPanel::NativeConstruct()

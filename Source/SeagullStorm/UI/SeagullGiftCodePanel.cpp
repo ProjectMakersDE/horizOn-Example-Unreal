@@ -84,6 +84,8 @@ void USeagullGiftCodePanel::NativeOnInitialized()
 		CloseSlot->SetPadding(FMargin(8.f, 0.f, 0.f, 0.f));
 	}
 	SeagullWidgetStyles::AddRow(Column, ButtonRow, 10.f);
+    SetMenuFirstFocus(CodeInput);
+    SetMenuBack(FSimpleDelegate::CreateUObject(this,&USeagullGiftCodePanel::OnCloseClicked));
 }
 
 void USeagullGiftCodePanel::NativeConstruct()

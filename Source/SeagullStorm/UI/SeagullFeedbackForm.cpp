@@ -85,6 +85,8 @@ void USeagullFeedbackForm::NativeOnInitialized()
 		CloseSlot->SetPadding(FMargin(8.f, 0.f, 0.f, 0.f));
 	}
 	SeagullWidgetStyles::AddRow(Column, ButtonRow, 10.f);
+    SetMenuFirstFocus(TitleInput);
+    SetMenuBack(FSimpleDelegate::CreateUObject(this,&USeagullFeedbackForm::OnCloseClicked));
 }
 
 void USeagullFeedbackForm::NativeConstruct()

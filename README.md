@@ -45,6 +45,13 @@ commit a real key, password or session token.
 
 ## Official embedded SDK
 
+The example menus use Tab/Shift+Tab and arrow keys, DPad or left stick to move
+the visible focus. Enter, Space or gamepad South activates the focused control;
+Escape or East uses the menu's existing Back/Close action. Text and open combo
+controls retain their normal editing keys. Enter in an input never submits a
+different button. Closing a dialog restores its parent control; only the top
+menu is interactive. These controls are local UI and add no network requests.
+
 `Plugins/HorizonSDK` is the complete, unmodified official develop snapshot
 `35df7fe2e3c073ed372cdc872a891c79a6f18695` (descriptor version1.6.0).
 It includes Player Values, Statistics, Realtime, Validated Actions and the native
