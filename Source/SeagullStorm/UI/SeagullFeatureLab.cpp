@@ -57,6 +57,14 @@ bool Integer(const TSharedPtr<FJsonObject>& A,const TCHAR* Key,int64& Value,int6
     FString V;if(!A->HasField(Key)){Value=Default;return true;}if(!A->TryGetStringField(Key,V)||V.IsEmpty()||!LexTryParseString(Value,*V))return false;
     return LexToString(Value)==V&&Value>=-9007199254740991LL&&Value<=9007199254740991LL;
 }
+bool SharedPosition(const TSharedPtr<FJsonObject>& A,FHorizonSharedObjectInput& Input)
+{
+    const auto Value=A->TryGetField(TEXT("position"));if(!Value||Value->IsNull())return true;
+    const TSharedPtr<FJsonObject>* Position;
+    if(!A->TryGetObjectField(TEXT("position"),Position)||(*Position)->Values.Num()!=2||!(*Position)->HasField(TEXT("x"))||!(*Position)->HasField(TEXT("y")))return false;
+    int64 X,Y;if(!Integer(*Position,TEXT("x"),X)||!Integer(*Position,TEXT("y"),Y))return false;
+    Input.bHasPosition=true;Input.Position.X=X;Input.Position.Y=Y;return true;
+}
 bool Flag(const TSharedPtr<FJsonObject>& A){bool V=false;A->TryGetBoolField(TEXT("flag"),V);return V;}
 bool MatchIds(const TSharedPtr<FJsonObject>& A,TArray<FString>& Out)
 {
@@ -194,8 +202,9 @@ bool USeagullFeatureLab::Execute(const FString& Feature,const FString& Action,co
     }
     else if(Feature==TEXT("Shared Objects"))
     {
-        if(!Shared)Shared=GetWorld()->SpawnActor<AHorizonSharedObjectsExample>();
         FHorizonSharedObjectInput Input;Input.Data=Data;
+        if((Action==TEXT("create")||Action==TEXT("update"))&&!SeagullLab::SharedPosition(A,Input)){Error=TEXT("INVALID_SHARED_POSITION");return false;}
+        if(!Shared)Shared=GetWorld()->SpawnActor<AHorizonSharedObjectsExample>();
         if(Action==TEXT("read-owner-page"))Shared->RefreshOwned(Collection,Target,Request);else if(Action==TEXT("query-rectangle-page"))Shared->QueryRectangle(Collection,0,100,0,100,Request);else if(Action==TEXT("query-opponents"))Shared->QueryOpponents(Collection,Key.IsEmpty()?TEXT("strength"):Key,0,100);else if(Action==TEXT("create"))Shared->CreateMarker(Input);else if(Action==TEXT("update"))Shared->UpdateMarker(Id,Revision,Input);else if(Action==TEXT("delete"))Shared->DeleteMarker(Id,Revision);else if(Action==TEXT("retry-original"))Shared->RetryOriginal();else if(Action==TEXT("confirm-recovered-create"))return Shared->ConfirmRecoveredCreate(Id);else return Shared->AcknowledgeAfterRefresh();
     }
     else if(Feature==TEXT("Chat"))

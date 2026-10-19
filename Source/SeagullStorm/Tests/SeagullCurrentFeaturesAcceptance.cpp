@@ -13,6 +13,9 @@
 #include "Components/TextBlock.h"
 #include "Core/SeagullGameInstance.h"
 #include "Horizon/SeagullHorizonManager.h"
+#include "Models/HorizonSharedObjects.h"
+#include "Serialization/JsonSerializer.h"
+namespace SeagullLab { bool SharedPosition(const TSharedPtr<FJsonObject>& A,FHorizonSharedObjectInput& Input); }
 namespace SeagullCurrentFeatures
 {
 bool SyntheticFixture(const FString& Url)
@@ -98,7 +101,22 @@ public:
 };
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FSeagullCurrentFeaturesHello,"Seagull.Acceptance.CurrentFeaturesHello",EAutomationTestFlags::ClientContext|EAutomationTestFlags::EngineFilter)
-bool FSeagullCurrentFeaturesHello::RunTest(const FString&){ADD_LATENT_AUTOMATION_COMMAND(SeagullCurrentFeatures::FHello(this));return true;}
+bool FSeagullCurrentFeaturesHello::RunTest(const FString&)
+{
+    for(const FString Json:{TEXT("{}"),TEXT("{\"position\":null}"),TEXT("{\"position\":{\"x\":\"10\",\"y\":\"-10\"}}"),TEXT("{\"position\":{\"x\":\"-9007199254740991\",\"y\":\"9007199254740991\"}}")})
+    {
+        TSharedPtr<FJsonObject> Args;TestTrue(TEXT("Position fixture parses"),FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(Json),Args));FHorizonSharedObjectInput Input;Input.Data={0,255};
+        TestTrue(TEXT("Optional position accepts exact canonical coordinates"),SeagullLab::SharedPosition(Args,Input));TestTrue(TEXT("Position leaves caller payload unchanged"),Input.Data==TArray<uint8>({0,255}));
+        const auto Position=Args->TryGetField(TEXT("position"));const bool Present=Position&&!Position->IsNull();TestEqual(TEXT("Only a supplied position enables the SDK field"),Input.bHasPosition,Present);
+        if(Json.Contains(TEXT("\"10\""))){TestEqual(TEXT("X preserved"),Input.Position.X,int64(10));TestEqual(TEXT("Y preserved"),Input.Position.Y,int64(-10));}
+    }
+    for(const FString Position:{TEXT("[]"),TEXT("false"),TEXT("\"10,10\""),TEXT("{}"),TEXT("{\"x\":\"10\"}"),TEXT("{\"x\":10,\"y\":10}"),TEXT("{\"x\":\"1.5\",\"y\":\"0\"}"),TEXT("{\"x\":\"01\",\"y\":\"0\"}"),TEXT("{\"x\":\"9007199254740992\",\"y\":\"0\"}"),TEXT("{\"x\":\"0\",\"y\":\"0\",\"z\":\"0\"}")})
+    {
+        TSharedPtr<FJsonObject> Args;TestTrue(TEXT("Invalid position fixture parses"),FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(TEXT("{\"position\":")+Position+TEXT("}")),Args));FHorizonSharedObjectInput Input;
+        TestFalse(TEXT("Malformed position refused before SDK dispatch"),SeagullLab::SharedPosition(Args,Input));TestFalse(TEXT("Rejected position does not enable SDK field"),Input.bHasPosition);
+    }
+    ADD_LATENT_AUTOMATION_COMMAND(SeagullCurrentFeatures::FHello(this));return true;
+}
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FSeagullCurrentFeaturesHelloReads,"Seagull.Acceptance.HelloAuthoritativeReads",EAutomationTestFlags::ClientContext|EAutomationTestFlags::EngineFilter)
 bool FSeagullCurrentFeaturesHelloReads::RunTest(const FString&)
 {
