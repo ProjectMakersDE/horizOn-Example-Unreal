@@ -1,4 +1,5 @@
 #include "UI/SeagullFeatureLab.h"
+#include "GameFramework/PlayerController.h"
 #include "UI/SeagullWidgetStyles.h"
 #include "Core/SeagullTypes.h"
 #include "Core/SeagullGameInstance.h"
@@ -238,7 +239,15 @@ void USeagullFeatureLab::CreateGuest()
 void USeagullFeatureLab::MarketplaceFinished(bool Success,const FString& Code){Status->SetText(FText::FromString(Success?TEXT("Marketplace original confirmed and current Inventory/PlayerValues/Marketplace refreshed."):TEXT("Original retained: ")+Code));}
 void USeagullFeatureLab::ClearRecipes(){for(AActor* Actor:{static_cast<AActor*>(Friends),static_cast<AActor*>(Groups),static_cast<AActor*>(Items),static_cast<AActor*>(Shared),static_cast<AActor*>(Matches),static_cast<AActor*>(Inbox),static_cast<AActor*>(Achievements),static_cast<AActor*>(Chat)})if(IsValid(Actor))Actor->Destroy();Friends=nullptr;Groups=nullptr;Items=nullptr;Shared=nullptr;Matches=nullptr;Inbox=nullptr;Achievements=nullptr;Chat=nullptr;Marketplace=nullptr;BoundMarketProject.Reset();}
 void USeagullFeatureLab::NativeDestruct(){ClearRecipes();Super::NativeDestruct();}
-void USeagullFeatureLab::Close(){RemoveFromParent();}
+void USeagullFeatureLab::FocusControls()
+{
+    if(auto* PC=GetOwningPlayer())
+    {
+        PC->bShowMouseCursor=true;
+        FInputModeUIOnly Mode;Mode.SetWidgetToFocus(FeatureInput->TakeWidget());PC->SetInputMode(Mode);
+    }
+}
+void USeagullFeatureLab::Close(){RemoveFromParent();OnClosed.ExecuteIfBound();}
 
 void ASeagullFeaturesHelloGameMode::BeginPlay()
 {

@@ -21,6 +21,8 @@ class USeagullFeatureLab:public UUserWidget
 public:
     virtual void NativeOnInitialized()override;
     virtual void NativeDestruct()override;
+    void FocusControls();
+    FSimpleDelegate OnClosed;
     /** Fixed action dispatch also used by native consumer acceptance. No arbitrary method invocation. */
     bool Execute(const FString& Feature,const FString& Action,const FString& Arguments,FString& Error);
 private:
