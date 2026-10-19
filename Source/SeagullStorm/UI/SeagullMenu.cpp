@@ -1,7 +1,5 @@
 #include "UI/SeagullMenu.h"
-#include "Core/SeagullTypes.h"
 #include "Blueprint/WidgetTree.h"
-#include "Brushes/SlateRoundedBoxBrush.h"
 #include "Components/Button.h"
 #include "Components/CheckBox.h"
 #include "Components/ComboBoxString.h"
@@ -179,11 +177,17 @@ int32 USeagullMenu::NativePaint(const FPaintArgs& Args, const FGeometry& Geometr
     const int32 Painted = Super::NativePaint(Args, Geometry, CullingRect, Elements, Layer, Style, ParentEnabled);
     if (IsTopMenu()) if (const auto* Control = FocusedControl())
     {
-        const auto& FocusGeometry = Control->GetCachedGeometry();
+        // Tick geometry includes the desktop window offset; paint geometry uses
+        // the same window-local space as this paint pass.
+        const auto& FocusGeometry = Control->GetPaintSpaceGeometry();
         const FVector2D Position = Geometry.AbsoluteToLocal(FocusGeometry.GetAbsolutePosition());
         const FVector2D Size = Geometry.AbsoluteToLocal(FocusGeometry.GetAbsolutePosition() + FocusGeometry.GetAbsoluteSize()) - Position;
-        static const FSlateRoundedBoxBrush Ring(FLinearColor::Transparent, 3.f, FLinearColor::White, 3.f);
-        FSlateDrawElement::MakeBox(Elements, Painted + 1, Geometry.ToPaintGeometry(Size, FSlateLayoutTransform(Position)), &Ring);
+        const FVector2D TopLeft = Position + FVector2D(1.5f, 1.5f);
+        const FVector2D BottomRight = Position + Size - FVector2D(1.5f, 1.5f);
+        const TArray<FVector2D> Outline = {TopLeft, FVector2D(BottomRight.X, TopLeft.Y), BottomRight,
+            FVector2D(TopLeft.X, BottomRight.Y), TopLeft};
+        FSlateDrawElement::MakeLines(Elements, Painted + 1, Geometry.ToPaintGeometry(), Outline,
+            ESlateDrawEffect::None, FLinearColor::White, true, 3.f);
         return Painted + 1;
     }
     return Painted;
