@@ -59,6 +59,14 @@ jobs:
       - name: Record verified SDK provenance
         run: python3 Scripts/pin_sdk_source.py --sdk-source sdk-source --tag "v${{ steps.sdk.outputs.version }}"
 
+      - name: Verify example integrity and existing C++ contracts before committing
+        run: |
+          python3 Scripts/verify_project.py
+          python3 Tests/run_cutout_pose_test.py
+          python3 Tests/run_input_log_test.py
+          python3 Tests/run_session_boundary_test.py
+          python3 Tests/run_sdk_contracts.py --sdk-source sdk-source
+
       - name: Cleanup
         run: rm -rf sdk-source
 
