@@ -4,6 +4,7 @@ from pathlib import Path
 import ast
 import hashlib
 import json
+import re
 import struct
 import sys
 
@@ -23,6 +24,14 @@ for name, digest in lock["files"].items():
     path = plugin / name
     check(path.is_file() and hashlib.sha256(path.read_bytes()).hexdigest() == digest, "SDK hash: " + name)
 check(json.loads((plugin / "HorizonSDK.uplugin").read_text())["VersionName"] == lock["descriptorVersion"], "SDK version")
+required_headers = set()
+for source in (ROOT / "Source").rglob("*"):
+    if source.suffix in {".h", ".cpp"}:
+        required_headers.update(name for name in re.findall(r'^\s*#include\s+"([^"]+)"', source.read_text(), re.MULTILINE)
+                                if re.match(r"Horizon[A-Z]", Path(name).name))
+for name in sorted(required_headers):
+    check((plugin / "Source/HorizonSDK/Public" / name).is_file(), "Game requires an absent official SDK public header: " + name)
+print(f"Required game SDK public headers: {len(required_headers)} (native compilation remains a separate check)")
 project = json.loads((ROOT / "SeagullStorm.uproject").read_text())
 check(project["EngineAssociation"] == "5.8", "Engine association")
 manifest = json.loads((ROOT / "Content" / "Textures" / "asset-manifest.json").read_text())
