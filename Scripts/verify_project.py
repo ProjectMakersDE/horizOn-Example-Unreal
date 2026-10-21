@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Engine-independent integrity checks; this does not compile or play Unreal."""
 from pathlib import Path
+import ast
 import hashlib
 import json
 import struct
@@ -65,6 +66,26 @@ check('+MapsToCook=(FilePath="/Game/Maps/MainMap")' in packaging, "MainMap inclu
 print("Cutout PNG assets: 16 parts + separate shadow / hashes, RGBA, canvases and layers")
 map_exists = (ROOT / "Content" / "Maps" / "MainMap.umap").is_file()
 print("Unreal editor bootstrap: " + ("map exists; engine build/play still required" if map_exists else "PENDING / no MainMap.umap; run Scripts/setup_editor_assets.py inside Unreal"))
+required_assets = {"Content/Maps/MainMap.umap", "Content/Materials/M_ArenaColor.uasset"}
+# Read the bootstrap's canonical source list without importing Unreal or regenerating assets.
+bootstrap = ast.parse((ROOT / "Scripts/setup_editor_assets.py").read_text())
+sources = next(ast.literal_eval(node.value) for node in ast.walk(bootstrap)
+               if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == "sources" for target in node.targets))
+for name, (filename, _, animations) in sources.items():
+    required_assets.add("Content/Textures/" + str(Path(filename).with_suffix(".uasset")))
+    required_assets.add("Content/Sprites/SP_" + name + ".uasset")
+    required_assets.update("Content/Flipbooks/FB_" + animation + ".uasset" for animation in animations)
+for family in ("gull", "crab"):
+    for part in rig["characters"][family]["parts"]:
+        required_assets.add("Content/Textures/Cutout/" + str(Path(part["file"]).with_suffix(".uasset")))
+        required_assets.add("Content/Sprites/Cutout/SP_Cutout_" + family + "_" + part["name"] + ".uasset")
+required_assets.add("Content/Textures/Cutout/" + str(Path(rig["shadow"]["file"]).with_suffix(".uasset")))
+required_assets.add("Content/Sprites/Cutout/SP_Cutout_shadow.uasset")
+required_assets.update(str(path.with_suffix(".uasset").relative_to(ROOT)) for path in (ROOT / "Content/Audio").rglob("*.ogg"))
+for name in sorted(required_assets):
+    path = ROOT / name
+    check(path.is_file() and path.read_bytes()[:4] == b"\xc1\x83\x2a\x9e", "Imported Unreal package missing or invalid: " + name)
+print(f"Required imported Unreal packages: {len(required_assets)} (native asset loading remains a separate check)")
 if failures:
     for failure in failures:
         print("FAIL: " + failure, file=sys.stderr)

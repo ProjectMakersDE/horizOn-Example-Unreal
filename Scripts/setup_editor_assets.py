@@ -1,9 +1,9 @@
-"""Run via Unreal 5.5 Tools > Execute Python Script after compiling the project.
+"""Optional regeneration via Unreal 5.8 Tools > Execute Python Script.
 
 Imports shared RGBA art, custom-pivot cutout sprites, fallback one-frame
 Paper2D flipbooks and an empty boot map. Existing generated assets are reused.
-Not executed on the October 2026 refresh host: Unreal Engine is not installed.
-Epic API references are recorded in EDITOR_SETUP.md.
+Imported packages are already versioned. Epic API references and native
+verification boundaries are recorded in EDITOR_SETUP.md.
 """
 from pathlib import Path
 import struct

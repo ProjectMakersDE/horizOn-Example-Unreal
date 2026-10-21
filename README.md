@@ -32,12 +32,9 @@ not a real Develop or production backend.
 ## Start
 
 1. Open `SeagullStorm.uproject` in Unreal **5.8** and compile `SeagullStormEditor`.
-   Imported assets are already included; the bootstrap is only needed to regenerate them.
-2. Run `Scripts/setup_editor_assets.py` through **Tools > Execute Python Script**.
-   The project enables the bundled Paper2D/Python/editor scripting plugins.
-3. Restart the editor to refresh constructor asset caches, open
-   `/Game/Maps/MainMap`, and press Play.
-4. Select **Play offline practice**. No backend or account is required for this
+   The imported map, sprites, flipbooks, materials and audio are already included.
+2. Open `/Game/Maps/MainMap` and press Play.
+3. Select **Play offline practice**. No backend or account is required for this
    game flow. Practice progress is stored at `Saved/SeagullStorm/practice.json`.
 
 For online examples, configure your own app's API key in the horizOn settings or
@@ -55,10 +52,12 @@ commit a real key, password or session token.
 ## Official embedded SDK
 
 `Plugins/HorizonSDK` is the complete, unmodified official develop snapshot
-`12120bf4e19b7c6fd56157c6f8637cf05d51dadb` (descriptor version 1.9.0).
+`a3ff3cc5075b0d3644473fa69b6a31b18cbe7e8a` (descriptor version 1.6.0).
 It includes Player Values, Statistics, Realtime, Validated Actions and the native
 unity-build correction. This is an explicitly pinned develop source snapshot;
-no release was created. `SDK-SOURCE.json` records all 151 official files and hashes.
+no release was created. `SDK-SOURCE.json` records all 181 official files and hashes.
+The descriptor is the version string carried by that snapshot, not a released tag.
+The optional asset regeneration steps are in [EDITOR_SETUP.md](EDITOR_SETUP.md).
 
 The example enables `HORIZON_WITH_VALIDATED_ACTIONS=1`. The release synchronization
 workflow replaces the entire plugin on future SDK releases. Example configuration
