@@ -53,9 +53,9 @@ different button. Closing a dialog restores its parent control; only the top
 menu is interactive. These controls are local UI and add no network requests.
 
 `Plugins/HorizonSDK` is the complete, unmodified official develop snapshot
-`35df7fe2e3c073ed372cdc872a891c79a6f18695` (descriptor version1.6.0).
+`337c2d39a4a6945f3f49993c744c055a55b70c42` (descriptor version1.6.0).
 It includes Player Values, Statistics, Realtime, Validated Actions and the native
-unity-build correction. This is an explicitly pinned develop source snapshot;
+unity-build correction and the JSON-array News response fix. This is an explicitly pinned develop source snapshot;
 no release was created. `SDK-SOURCE.json` records all254 official files and hashes.
 
 The example enables `HORIZON_WITH_VALIDATED_ACTIONS=1`. The release synchronization
