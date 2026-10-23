@@ -1,3 +1,5 @@
+// Copyright (c) 2026 ProjectMakers. Licensed under the MIT License.
+
 #pragma once
 #include "CoreMinimal.h"
 #include "Http/HorizonHttpClient.h"
@@ -42,6 +44,7 @@ private:
     FHorizonPlayerValuesState State;
     FHorizonPlayerValuesOffers Offers;
     FString Identity;
+    uint64 ContextEpoch=0;
     int64 Epoch = 0, Revision = -1, Definition = -1, ServerMillis = -1;
     double ObservedAt = 0;
     bool Begin(const FString& UserId);

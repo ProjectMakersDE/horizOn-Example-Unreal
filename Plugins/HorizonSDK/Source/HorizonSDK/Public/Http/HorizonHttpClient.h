@@ -1,4 +1,4 @@
-// Copyright (c) 2025-2026 horizOn. All rights reserved.
+// Copyright (c) 2026 ProjectMakers. Licensed under the MIT License.
 
 #pragma once
 
@@ -47,6 +47,14 @@ public:
 	FString GetSessionToken() const;
 
 	// -- HTTP convenience methods --
+    /** Explicit one-attempt JSON write, preserving length-aware keys and numeric lexemes. No implicit retries. */
+    void JsonOnce(const TSharedRef<FJsonObject>& Body,const FString& Endpoint,bool bPut,bool bUseSessionToken,FOnHttpResponse OnComplete);
+    /** Feature-validated immutable original UTF-8 JSON, one authenticated POST and no normalization/retry. */
+    void PostOriginalJsonOnce(const FString& OriginalJson,const FString& Endpoint,FOnHttpResponse Complete);
+    /** Opaque read-only POST; lossless JSON and existing bounded read retries. */
+    void PostJsonRead(const TSharedRef<FJsonObject>& Body,const FString& Endpoint,FOnHttpResponse Complete);
+    /** Only POST/PUT/DELETE with original safe If-Match and exactly one authenticated attempt. */
+    void RevisionJsonOnce(const TSharedPtr<FJsonObject>& Body,const FString& Endpoint,const FString& Verb,int64 OriginalRevision,FOnHttpResponse Complete);
 	void Get(const FString& Endpoint, bool bUseSessionToken, FOnHttpResponse OnComplete);
 	/** ExtraHeaders are sent on every attempt, for example If-Match for a conditional cloud save. */
 	void PostJson(const TSharedRef<FJsonObject>& Body, const FString& Endpoint, bool bUseSessionToken, FOnHttpResponse OnComplete,

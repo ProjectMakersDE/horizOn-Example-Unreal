@@ -1,7 +1,7 @@
 {
     "FileVersion": 3,
     "Version": 1,
-    "VersionName": "1.6.0",
+    "VersionName": "1.10.0",
     "FriendlyName": "horizOn SDK",
     "Description": "horizOn Backend SDK for Unreal Engine. Provides authentication, cloud saves, leaderboards, remote config, news, gift codes, feedback, and server-side logging.",
     "Category": "Networking",
@@ -26,12 +26,26 @@
         {
             "Name": "HorizonSDK",
             "Type": "Runtime",
-            "LoadingPhase": "Default"
+            "LoadingPhase": "Default",
+            "PlatformAllowList": [
+                "Win64",
+                "Mac",
+                "Linux",
+                "Android",
+                "IOS"
+            ]
         },
         {
             "Name": "HorizonSDKEditor",
             "Type": "Editor",
-            "LoadingPhase": "Default"
+            "LoadingPhase": "Default",
+            "PlatformAllowList": [
+                "Win64",
+                "Mac",
+                "Linux",
+                "Android",
+                "IOS"
+            ]
         }
     ]
 }

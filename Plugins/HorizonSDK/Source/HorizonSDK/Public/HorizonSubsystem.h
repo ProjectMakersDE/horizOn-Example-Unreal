@@ -1,4 +1,4 @@
-// Copyright (c) 2025-2026 horizOn. All rights reserved.
+// Copyright (c) 2026 ProjectMakers. Licensed under the MIT License.
 
 #pragma once
 
@@ -11,6 +11,12 @@ class UHorizonRealtimeManager;
 class UHorizonInboxManager;
 class UHorizonAchievementsManager;
 class UHorizonFriendsManager;
+class UHorizonGroupsManager;
+class UHorizonItemsManager;
+class UHorizonMarketplaceManager;
+class UHorizonSharedObjectsManager;
+class UHorizonMatchesManager;
+class UHorizonChatManager;
 class UHorizonPlayerValuesManager;
 class UHorizonHttpClient;
 class UHorizonAuthManager;
@@ -106,6 +112,14 @@ public:
     UHorizonAchievementsManager* Achievements = nullptr;
     UPROPERTY(BlueprintReadOnly, Category = "horizOn")
     UHorizonFriendsManager* Friends = nullptr;
+    UPROPERTY(BlueprintReadOnly, Category="horizOn|Managers")
+    UHorizonGroupsManager* Groups = nullptr;
+    UPROPERTY(BlueprintReadOnly, Category="horizOn|Managers")
+    UHorizonItemsManager* Items = nullptr;
+    UPROPERTY(BlueprintReadOnly,Category="horizOn") UHorizonMarketplaceManager* Marketplace=nullptr;
+    UPROPERTY(BlueprintReadOnly,Category="horizOn") UHorizonSharedObjectsManager* SharedObjects=nullptr;
+    UPROPERTY(BlueprintReadOnly,Category="horizOn") UHorizonMatchesManager* Matches=nullptr;
+    UPROPERTY(BlueprintReadOnly,Category="horizOn") UHorizonChatManager* Chat=nullptr;
 
 	// --- Connection ---
 

@@ -1,3 +1,5 @@
+// Copyright (c) 2026 ProjectMakers. Licensed under the MIT License.
+
 #include "Examples/HorizonAchievementsExample.h"
 #include "HorizonSubsystem.h"
 #include "Managers/HorizonAchievementsManager.h"
@@ -38,7 +40,8 @@ void AHorizonAchievementsExample::UnlockAchievement(const FString& Key)
         [](bool Ok,const FHorizonAchievementUnlockResponse& R,const FString& Code,const FString&)
         {
             if (!Ok) { UE_LOG(LogTemp,Warning,TEXT("[AchievementsExample] Retry the same original key explicitly: %s"),*Code); return; }
-            // Display R.Achievements.Progress: PendingReward holds original values, not edited definition rewards.
+            // Complete progress has no date or pending payload. Values are already credited atomically.
+            // Refresh PlayerValues explicitly when displaying the balance; no Inbox claim is needed.
             UE_LOG(LogTemp,Log,TEXT("[AchievementsExample] New unlocks: %d; replayed=%s"),R.NewlyUnlocked.Num(),R.bReplayed?TEXT("true"):TEXT("false"));
         }));
 }
@@ -84,6 +87,6 @@ void AHorizonAchievementsExample::Deliver(const TArray<FString>& Keys,bool Retry
             auto* Stored=Cast<UHorizonAchievementPendingDelivery>(UGameplayStatics::LoadGameFromSlot(Slot,0));
             if (Finished && HorizonAchievementExampleStorage::Valid(Stored,Project,User) && Stored->Keys==OriginalKeys)
                 if (!UGameplayStatics::DeleteGameInSlot(Slot,0)) UE_LOG(LogTemp,Warning,TEXT("[AchievementsExample] Retain original keys for safe replay"));
-            // INBOX_FULL remains pending. Delivered IDs link to Inbox; only its explicit Claim changes values.
+            // Compatibility only for old pending keys. MIGRATION_REQUIRED is resolved server-side.
         }));
 }

@@ -1,5 +1,8 @@
+// Copyright (c) 2026 ProjectMakers. Licensed under the MIT License.
+
 #pragma once
 #include "CoreMinimal.h"
+#include "Models/HorizonItems.h"
 #include "HorizonPlayerValues.generated.h"
 class FJsonObject;
 
@@ -29,6 +32,7 @@ struct HORIZONSDK_API FHorizonPlayerValueOffer
     UPROPERTY(BlueprintReadOnly, Category="horizOn|PlayerValues") bool bActive = false;
     UPROPERTY(BlueprintReadOnly, Category="horizOn|PlayerValues") TArray<FHorizonPlayerValueAmount> Costs;
     UPROPERTY(BlueprintReadOnly, Category="horizOn|PlayerValues") TArray<FHorizonPlayerValueAmount> Rewards;
+    UPROPERTY(BlueprintReadOnly, Category="horizOn|PlayerValues") TArray<FHorizonItemReward> ItemRewards;
     UPROPERTY(BlueprintReadOnly, Category="horizOn|PlayerValues") bool bHasPurchasesPerDay = false;
     UPROPERTY(BlueprintReadOnly, Category="horizOn|PlayerValues") int64 PurchasesPerDay = 0;
 };
@@ -39,7 +43,9 @@ struct HORIZONSDK_API FHorizonPlayerValuesOperation
     UPROPERTY(BlueprintReadOnly, Category="horizOn|PlayerValues") bool bPresent = false;
     UPROPERTY(BlueprintReadOnly, Category="horizOn|PlayerValues") FString OperationId;
     UPROPERTY(BlueprintReadOnly, Category="horizOn|PlayerValues") bool bReplayed = false;
+    // Immediate fresh-operation deltas/references; compact replays return empty arrays.
     UPROPERTY(BlueprintReadOnly, Category="horizOn|PlayerValues") TArray<FHorizonPlayerValueAmount> Applied;
+    UPROPERTY(BlueprintReadOnly, Category="horizOn|PlayerValues") TArray<FHorizonItemReference> Items;
 };
 USTRUCT(BlueprintType)
 struct HORIZONSDK_API FHorizonPlayerValuesState
