@@ -58,7 +58,7 @@ ASeagullPlayerPawn::ASeagullPlayerPawn()
 	SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
 	SpringArm->SetupAttachment(RootComponent);
 	SpringArm->TargetArmLength = 500.f;
-	SpringArm->SetRelativeRotation(FRotator(-90.f, -90.f, 0.f)); // Camera right is +X, up is +Y.
+	SpringArm->SetRelativeRotation(FRotator(-90.f, -90.f, 0.f)); // Camera right is +X, up is -Y (SeagullScreenUpY).
 	SpringArm->bDoCollisionTest = false;
 	SpringArm->bInheritPitch = false;
 	SpringArm->bInheritYaw = false;
@@ -101,10 +101,10 @@ void ASeagullPlayerPawn::Tick(float DeltaTime)
 		FVector2D Input = PC->GetMoveInput();
 		if (!Input.IsNearlyZero())
 		{
-			FVector WorldDir(Input.X, Input.Y, 0.f);
+			FVector WorldDir(Input.X, Input.Y * SeagullScreenUpY, 0.f);
 			WorldDir.Normalize();
 			AddMovementInput(WorldDir, 1.0f);
-			LastMoveDirection = Input.GetSafeNormal();
+			LastMoveDirection = FVector2D(WorldDir.X, WorldDir.Y);
 
 			// Flip sprite based on horizontal direction
 			if (SpriteComponent && LastMoveDirection.X != 0.0f)

@@ -84,13 +84,13 @@ private:
 };
 
 struct Point { float X, Y; };
-// Project a custom sprite pivot into the arena XY plane after the whole-body
-// rotation. PaperSprite local X maps to world X and local Z maps to world Y.
+// Project a custom sprite pivot into screen space (X right, Y up) after the
+// whole-body rotation. The rig maps screen Y to world Y via SeagullScreenUpY.
 inline Point Project(const Definition& D, float PivotX, float PivotY, const PartPose& P, float Lean, float Hop, float Mirror)
 {
 	const float X = PivotX + P.X - D.RootX, Y = PivotY + P.Y - D.RootY;
 	return {(D.RootX + X * std::cos(Lean) - Y * std::sin(Lean) - D.ActorX) * Mirror,
 		D.ActorY - (D.RootY + X * std::sin(Lean) + Y * std::cos(Lean) + Hop)};
 }
-inline float WorldYaw(float CanvasAngle) { return -CanvasAngle; }
+inline float WorldYaw(float CanvasAngle) { return CanvasAngle; } // both turn clockwise on screen
 }

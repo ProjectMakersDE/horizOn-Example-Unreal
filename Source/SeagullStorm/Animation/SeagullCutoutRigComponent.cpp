@@ -77,7 +77,7 @@ bool USeagullCutoutRigComponent::Initialize(SeagullCutout::Character Kind, float
 	Shadow->SetGenerateOverlapEvents(false);
 	Shadow->SetCastShadow(false);
 	Shadow->SetRelativeRotation(SeagullSpritePlane());
-	Shadow->SetRelativeLocation(FVector((Definition.FeetX - Definition.ActorX) * UnitsPerPixel, (Definition.ActorY - Definition.FeetY - 4.f) * UnitsPerPixel, 1.f));
+	Shadow->SetRelativeLocation(FVector((Definition.FeetX - Definition.ActorX) * UnitsPerPixel, (Definition.ActorY - Definition.FeetY - 4.f) * UnitsPerPixel * SeagullScreenUpY, 1.f));
 	// Imported at a unit width, then sized beneath the existing canvas width.
 	Shadow->SetRelativeScale3D(FVector(CanvasWorldWidth * .54f, 1.f, CanvasWorldWidth * .30f));
 	Shadow->RegisterComponent();
@@ -96,7 +96,7 @@ void USeagullCutoutRigComponent::UpdatePose(float DeltaTime, bool Moving, float 
 	for (int32 I = 0; I < Parts.Num(); ++I)
 	{
 		const auto Position = SeagullCutout::Project(Definition, Definition.Parts[I].X, Definition.Parts[I].Y, Pose.Parts[I], Pose.Lean, Pose.Hop, 1.f);
-		Parts[I]->SetRelativeLocation(FVector(Position.X * UnitsPerPixel, Position.Y * UnitsPerPixel, 2.f + I * .05f));
+		Parts[I]->SetRelativeLocation(FVector(Position.X * UnitsPerPixel, Position.Y * UnitsPerPixel * SeagullScreenUpY, 2.f + I * .05f));
 		const float Yaw = SeagullCutout::WorldYaw(Pose.Parts[I].Angle + Pose.Lean);
 		Parts[I]->SetRelativeRotation(FQuat(FVector::UpVector, Yaw) * SeagullSpritePlane());
 		Parts[I]->SetSpriteColor(Tint);
