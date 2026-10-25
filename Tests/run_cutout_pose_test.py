@@ -66,9 +66,9 @@ int main() {
     assert(Near(Rotated.X, D.RootX-D.ActorX) && Near(Rotated.Y, D.ActorY-D.RootY-1.f));
     auto Mirrored = Project(D, D.ActorX+5.f, D.ActorY+3.f, P, 0.f, 0.f, -1.f);
     assert(Near(Mirrored.X, -5.f) && Near(Mirrored.Y, -3.f));
-    // The renderer maps Paper2D local X->world X, local Z->world Y.
-    // A clockwise canvas angle is negative world yaw, even before facing.
-    assert(Near(WorldYaw(Pi/2.f), -Pi/2.f));
+    // Screen up is world -Y (SeagullScreenUpY), so a clockwise canvas angle is a
+    // positive world yaw: both turn clockwise on screen.
+    assert(Near(WorldYaw(Pi/2.f), Pi/2.f));
     for (auto Kind : {Character::Gull, Character::Crab}) {
         const auto& Def = GetDefinition(Kind);
         std::cout << (Kind == Character::Gull ? "gull" : "crab") << ':' << Def.Canvas << ':' << Def.ActorX << ',' << Def.ActorY << ':' << Def.RootX << ',' << Def.RootY << ':' << Def.BaseFacing << '\n';
