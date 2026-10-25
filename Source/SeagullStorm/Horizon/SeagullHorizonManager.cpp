@@ -258,11 +258,12 @@ void USeagullHorizonManager::LoadData(TFunction<void(bool, const FString&)> Call
 	const FString Owner = GI->SaveOwnerId;
 	TWeakObjectPtr<USeagullHorizonManager> Weak(this);
 
-	Subsystem->CloudSave->Load(FOnStringComplete::CreateLambda(
-		[Weak, Generation, Owner, Callback](bool bSuccess, const FString& Data)
+	// The snapshot tells an empty slot (success, no data) from a failed load; plain Load reports both as failure.
+	Subsystem->CloudSave->LoadSnapshot(FOnCloudSaveSnapshotComplete::CreateLambda(
+		[Weak, Generation, Owner, Callback](const FHorizonCloudSaveSnapshot& Snapshot)
 		{
 			if (USeagullHorizonManager* Self = Weak.Get())
-				if (Callback) Callback(bSuccess && Self->IsCurrentSession(Generation, Owner), Self->IsCurrentSession(Generation, Owner) ? Data : FString());
+				if (Callback) Callback(Snapshot.bSuccess && Self->IsCurrentSession(Generation, Owner), Self->IsCurrentSession(Generation, Owner) && Snapshot.bFound ? Snapshot.Data : FString());
 		}));
 }
 

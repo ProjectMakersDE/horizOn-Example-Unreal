@@ -300,7 +300,9 @@ void USeagullMainHub::LoadHubData()
 			}
 			else
 			{
+				// An empty slot is a player without a save yet, so saving is safe. A failed load keeps saving off.
 				GI->SaveData.InitDefaults();
+				GI->bCloudSaveReady = bSuccess;
 				GI->bSaveLoaded = true;
 			}
 			if (USeagullMainHub* Hub = WeakThis.Get())
