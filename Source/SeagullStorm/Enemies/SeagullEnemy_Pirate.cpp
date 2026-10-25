@@ -1,5 +1,6 @@
 #include "Enemies/SeagullEnemy_Pirate.h"
 #include "Kismet/GameplayStatics.h"
+#include "PaperFlipbookComponent.h"
 
 ASeagullEnemy_Pirate::ASeagullEnemy_Pirate()
 {
