@@ -331,10 +331,22 @@ void USeagullHorizonManager::RedeemGiftCode(const FString& Code, TFunction<void(
 {
 	if (!Subsystem || !Subsystem->GiftCodes) { if (Callback) Callback(false, TEXT(""), TEXT("")); return; }
 
-	Subsystem->GiftCodes->Redeem(Code, FOnGiftCodeRedeemComplete::CreateLambda(
-		[Callback](bool bSuccess, const FString& GiftData, const FString& Message)
+	// V2 redemption: the server hands out an intent first, the redeem call then consumes exactly that intent.
+	TWeakObjectPtr<UHorizonSubsystem> WeakSubsystem(Subsystem);
+	Subsystem->GiftCodes->PrepareRedemption(Code, FOnGiftCodePrepareComplete::CreateLambda(
+		[WeakSubsystem, Callback](bool bPrepared, const FHorizonGiftCodeIntent& Intent, const FString& Error, const FString& Message)
 		{
-			if (Callback) Callback(bSuccess, GiftData, Message);
+			UHorizonSubsystem* SDK = WeakSubsystem.Get();
+			if (!bPrepared || !SDK || !SDK->GiftCodes)
+			{
+				if (Callback) Callback(false, TEXT(""), Message.IsEmpty() ? Error : Message);
+				return;
+			}
+			SDK->GiftCodes->RedeemPrepared(Intent, FOnGiftCodeRedeemResultComplete::CreateLambda(
+				[Callback](bool bSuccess, const FHorizonGiftCodeRedeemResult& Result, const FString& RedeemError, const FString& RedeemMessage)
+				{
+					if (Callback) Callback(bSuccess, Result.GiftData, RedeemMessage.IsEmpty() ? RedeemError : RedeemMessage);
+				}));
 		}));
 }
 
