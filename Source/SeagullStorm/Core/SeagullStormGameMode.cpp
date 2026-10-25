@@ -48,12 +48,16 @@ void ASeagullStormGameMode::BeginPlay()
 	if (HM)
 	{
 		HM->ConnectToServer();
-
 	}
 
 	SwitchToScreen(ESeagullGameScreen::Title);
+}
 
-	// Try session restore
+void ASeagullStormGameMode::RestoreSessionWhenConnected()
+{
+	// The SDK checks the cached session against the server, so wait until host selection has finished.
+	USeagullHorizonManager* HM = GetHorizonManager();
+	if (HM && (CurrentScreen != ESeagullGameScreen::Title || HM->IsSignedIn())) return; // The player already chose a way in.
 	if (HM)
 	{
 		TWeakObjectPtr<ASeagullStormGameMode> WeakThis(this);
@@ -85,7 +89,16 @@ void ASeagullStormGameMode::BeginPlay()
 void ASeagullStormGameMode::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-    // Register diagnostics only once the asynchronous host selection has completed.
+    // Restore the session and register diagnostics only once the asynchronous host selection has completed.
+    if (!bSessionRestoreStarted)
+    {
+        USeagullHorizonManager* HM = GetHorizonManager();
+        if (!HM || HM->IsConnected())
+        {
+            bSessionRestoreStarted = true;
+            RestoreSessionWhenConnected();
+        }
+    }
     if (!bCrashCaptureStarted)
     {
         USeagullHorizonManager* HM = GetHorizonManager();

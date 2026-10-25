@@ -59,6 +59,8 @@ public:
 
 private:
 	bool bCrashCaptureStarted = false;
+	bool bSessionRestoreStarted = false;
+	void RestoreSessionWhenConnected();
 	ESeagullGameScreen CurrentScreen = ESeagullGameScreen::Title;
 	float SurvivalScoreAccumulator = 0.f;
 
