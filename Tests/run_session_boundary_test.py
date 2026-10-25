@@ -79,6 +79,8 @@ using FOnAuthComplete = Delegate<bool>;
 using FOnRequestComplete = Delegate<bool,const FString&>;
 using FOnStringComplete = Delegate<bool,const FString&>;
 using FOnAllConfigsComplete = Delegate<bool,const TMap<FString,FString>&>;
+struct FHorizonCloudSaveSnapshot { bool bSuccess = false; bool bFound = false; FString Data; };
+using FOnCloudSaveSnapshotComplete = Delegate<const FHorizonCloudSaveSnapshot&>;
 struct FHorizonLeaderboardEntry {}; struct FHorizonLeaderboardBoard {}; struct FHorizonPlayerState {};
 struct FHorizonPlayerProfileResult {}; struct FHorizonNewsEntry {};
 struct FHorizonValidatedRun { FString RunId; int32 Seed = 0; };
@@ -114,6 +116,10 @@ struct FakeCloud {
   Request R{Json,Auth->Current.UserId,C}; Sent.push_back(R); Pending.push_back(R);
  }
  void Load(std::function<void(bool,const FString&)> C) { Reads.push_back(C); }
+ // Reads complete as (reached server, slot data); an empty slot is a successful read without data.
+ void LoadSnapshot(std::function<void(const FHorizonCloudSaveSnapshot&)> C) {
+  Reads.push_back([C](bool Ok,const FString& Data){ FHorizonCloudSaveSnapshot S; S.bSuccess=Ok; S.bFound=Ok && !Data.IsEmpty(); S.Data=Data; C(S); });
+ }
  void Complete(bool Ok=true) { assert(!Pending.empty()); auto C=Pending.front().Callback; Pending.erase(Pending.begin()); C(Ok,""); }
 };
 struct FakeConfig {
@@ -184,6 +190,11 @@ int main() {
  Cloud.Reads.front()(true,"old save"); Config.Reads.front()(true,{{"board","old"}});
  assert(!StaleReadAccepted && !StaleConfigAccepted);
  GI.bPracticeMode=false; GI.SaveOwnerId="b"; GI.bSaveLoaded=true; GI.bCloudSaveReady=true;
+ bool EmptySlotOk=false,EmptySlotData=true,FailedReadOk=true;
+ Manager.LoadData([&](bool Ok,const FString& Data){ EmptySlotOk=Ok; EmptySlotData=!Data.IsEmpty(); });
+ Manager.LoadData([&](bool Ok,const FString&){ FailedReadOk=Ok; });
+ Cloud.Reads[1](true,""); Cloud.Reads[2](false,"");
+ assert(EmptySlotOk && !EmptySlotData && !FailedReadOk); // A guest without a save may save; a failed read keeps saving off.
  bool FirstSaved=false,SecondSaved=false,ThirdSaved=false;
  Manager.SaveData("purchase",[&](bool Ok){ FirstSaved=Ok; });
  Manager.SaveData("gift",[&](bool Ok){ SecondSaved=Ok; });
