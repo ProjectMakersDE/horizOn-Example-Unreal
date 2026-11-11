@@ -1,9 +1,9 @@
 name: Example integrity and contracts
 on:
   push:
-    branches: [main, develop, 'task/**', 'codex/**']
+    branches: [release, develop, 'task/**', 'codex/**']
   pull_request:
-    branches: [main, develop]
+    branches: [release, develop]
 permissions:
   contents: read
 jobs:
