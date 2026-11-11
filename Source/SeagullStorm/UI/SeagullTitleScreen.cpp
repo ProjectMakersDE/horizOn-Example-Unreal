@@ -138,6 +138,7 @@ void USeagullTitleScreen::NativeOnInitialized()
 		SeagullWidgetStyles::SmallFontSize, FLinearColor::FromSRGBColor(FColor(0x66, 0x66, 0x66)));
 	Footer->SetJustification(ETextJustify::Center);
 	SeagullWidgetStyles::AddRow(Column, Footer, 4.f);
+    SetMenuFirstFocus(NameInput);
 }
 
 void USeagullTitleScreen::NativeConstruct()

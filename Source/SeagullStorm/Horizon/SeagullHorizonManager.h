@@ -7,6 +7,7 @@
 #include "Models/HorizonValidatedActions.h"
 #include "Models/HorizonPlayerProfile.h"
 #include "Models/HorizonNewsEntry.h"
+#include "Models/HorizonGiftCodes.h"
 #include "SeagullHorizonManager.generated.h"
 
 class UHorizonExampleIdentity;
@@ -60,8 +61,10 @@ public:
 	void LoadNews(int32 Limit, const FString& Lang, TFunction<void(bool, const TArray<FHorizonNewsEntry>&)> Callback);
 
 	// --- Gift Codes ---
-	void ValidateGiftCode(const FString& Code, TFunction<void(bool, bool)> Callback);
-	void RedeemGiftCode(const FString& Code, TFunction<void(bool, const FString&, const FString&)> Callback);
+	bool ReadPendingGift(FHorizonGiftCodeIntent& Intent,FString& Error) const;
+    bool IsGiftInFlight() const { return bGiftInFlight; }
+    void PrepareGiftCode(const FString& Code,TFunction<void(bool,const FHorizonGiftCodeIntent&,const FString&)> Callback);
+    void RedeemPendingGift(TFunction<void(bool,const FHorizonGiftCodeRedeemResult&,const FString&)> Callback);
 
 	// --- Feedback ---
 	void SubmitFeedback(const FString& Title, const FString& Message, const FString& Category, TFunction<void(bool)> Callback);
@@ -118,6 +121,8 @@ private:
 	bool bSignOutAfterAuth = false;
 	bool bTicketRequestInFlight = false;
 	bool bCloudSaveInFlight = false;
+    bool bGiftInFlight = false;
+    FString GiftSlot() const;
 	struct FPendingCloudSave
 	{
 		FString Json;

@@ -95,6 +95,7 @@ void USeagullLevelUpOverlay::NativeOnInitialized()
 	if (Choice1Button) Choice1Button->OnClicked.AddDynamic(this, &USeagullLevelUpOverlay::OnChoice1);
 	if (Choice2Button) Choice2Button->OnClicked.AddDynamic(this, &USeagullLevelUpOverlay::OnChoice2);
 	if (Choice3Button) Choice3Button->OnClicked.AddDynamic(this, &USeagullLevelUpOverlay::OnChoice3);
+    SetMenuFirstFocus(Choice1Button);
 }
 
 void USeagullLevelUpOverlay::SetChoices(const TArray<FSeagullLevelUpChoice>& InChoices)

@@ -1,16 +1,17 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Blueprint/UserWidget.h"
+#include "UI/SeagullMenu.h"
 #include "SeagullSDKPanel.generated.h"
 
 class UTextBlock;
 class UEditableTextBox;
 class USeagullHorizonManager;
+class UButton;
 
 /** Small interactive reference for the SDK APIs used by the game. */
 UCLASS()
-class USeagullSDKPanel : public UUserWidget
+class USeagullSDKPanel : public USeagullMenu
 {
     GENERATED_BODY()
 public:
@@ -22,6 +23,7 @@ private:
     UPROPERTY() UEditableTextBox* BoardInput = nullptr;
     UPROPERTY() UEditableTextBox* AvatarInput = nullptr;
     UPROPERTY() UEditableTextBox* EmailTemplateInput = nullptr;
+    UPROPERTY() UButton* FeatureLabButton = nullptr;
     UFUNCTION() void OnProfile();
     UFUNCTION() void OnApplyAvatar();
     UFUNCTION() void OnSendEmail();
@@ -37,5 +39,6 @@ private:
     UFUNCTION() void OnGerman();
     UFUNCTION() void OnCloudSave();
     UFUNCTION() void OnClose();
+    UFUNCTION() void OnFeatureLab();
     void LoadLanguage(const FString& Language);
 };

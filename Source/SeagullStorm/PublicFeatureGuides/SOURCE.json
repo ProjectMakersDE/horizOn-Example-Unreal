@@ -1,0 +1,66 @@
+{
+  "sdk": "337c2d39a4a6945f3f49993c744c055a55b70c42",
+  "dashboardBase": "bfa5b2dfc0b4b882d73e34f33cffd74a61193ce9",
+  "sourceManifestSha256": "72d4bfe1cbd7b34d76d0ec6f98df9916560262dba5fa68e2dfce3256d5789939",
+  "files": {
+    "GroupsDemo.cpp": {
+      "feature": "groups",
+      "sha256": "9976d3022142e8b6df2d33587fef624a8bf1176a36e68c84994f7f2b944cf1f9"
+    },
+    "ItemsDemo.cpp": {
+      "feature": "items",
+      "sha256": "86df980fed049de20b377edd633efedc09ae997f12833372d697cc01f99c6e3a"
+    },
+    "MatchesDemo.cpp": {
+      "feature": "matches",
+      "sha256": "df2b4424efe4ca1c5c0140d7b1dafa4674ff0b468db5810d5bdd25189a735522"
+    },
+    "SharedObjectsDemo.cpp": {
+      "feature": "shared-objects",
+      "sha256": "1d10ab5e085faad17973a112f6bd70d212dec95d80393c9e9e527738af1d3c8a"
+    },
+    "PlayerValuesDemo.cpp": {
+      "feature": "player-values",
+      "sha256": "2f124c1165068863ae98c223456a5f0b7b629b8426442f5f5d58a5a14e99d19b",
+      "dashboardSource": "742180e7710e5648db17ed1b64b14a59686165c1"
+    },
+    "StatisticsDemo.cpp": {
+      "feature": "statistics",
+      "sha256": "233470ebb3328be17fc944e739ae82b7e76532b05d9b34179bc87dc3d5375a90",
+      "dashboardSource": "742180e7710e5648db17ed1b64b14a59686165c1"
+    },
+    "AchievementsDemo.cpp": {
+      "feature": "achievements",
+      "sha256": "cd060cfe0a2577eb94bd693210774d15e6b829904ef5542dcc5251251efb7793",
+      "dashboardSource": "40065cc56795daea68156d66bbb94c7f8944ffa8"
+    },
+    "InboxDemo.cpp": {
+      "feature": "inbox",
+      "sha256": "41394a4621e0c8e2e57881afd5132f3ba094e48819d8696e186a4dd55a99bda9",
+      "dashboardSource": "742180e7710e5648db17ed1b64b14a59686165c1"
+    },
+    "FriendsDemo.cpp": {
+      "feature": "friends",
+      "sha256": "628bdbfce709e8e6dd40316201cb305aad51c8594984d7ca4af173c73e9deb6c",
+      "dashboardSource": "742180e7710e5648db17ed1b64b14a59686165c1"
+    },
+    "ChatDemo.cpp": {
+      "feature": "chat",
+      "sha256": "e51a57b36110342daf46be68a0094b0f160c518a8849ad5823173e01fe37a187",
+      "dashboardSource": "742180e7710e5648db17ed1b64b14a59686165c1"
+    }
+  },
+  "commentOnlyNativeEquivalence": "Prior native3533: identical executable lines; only Items replay explanation changed",
+  "additionalGuides": {
+    "features": [
+      "player-values",
+      "statistics",
+      "achievements",
+      "inbox",
+      "friends",
+      "chat"
+    ],
+    "sourceManifestSha256": "120d0bb9a7ace8062f798fd7eba731df34826514c3ebedf7eabc302156ac2d32",
+    "native": "Full file compilation and actual Statistics O1/O2 HTTP race; hosted Develop timing remains separate"
+  }
+}

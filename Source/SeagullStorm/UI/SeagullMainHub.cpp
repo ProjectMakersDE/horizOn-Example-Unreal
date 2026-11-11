@@ -173,6 +173,7 @@ void USeagullMainHub::NativeOnInitialized()
 		}
 	}
 	SeagullWidgetStyles::AddRow(RightColumn, ActionRow, 8.f);
+    SetMenuFirstFocus(PlayButton);
 }
 
 UWidget* USeagullMainHub::BuildUpgradeRow(UTextBlock*& OutLevelText, UButton*& OutBuyButton, const FString& RowName)

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Blueprint/UserWidget.h"
+#include "UI/SeagullMenu.h"
 #include "SeagullEmailAuthForm.generated.h"
 
 class UEditableTextBox;
@@ -9,7 +9,7 @@ class UButton;
 class UTextBlock;
 
 UCLASS()
-class USeagullEmailAuthForm : public UUserWidget
+class USeagullEmailAuthForm : public USeagullMenu
 {
 	GENERATED_BODY()
 

@@ -69,6 +69,8 @@ void USeagullPauseMenu::NativeOnInitialized()
 	QuitButton = SeagullWidgetStyles::MakeTextButton(WidgetTree, TEXT("Quit Run"),
 		SeagullColors::Teal, SeagullColors::LightText, SeagullWidgetStyles::TextFontSize, TEXT("QuitButton"));
 	SeagullWidgetStyles::AddRow(Column, QuitButton);
+    SetMenuFirstFocus(ResumeButton);
+    SetMenuBack(FSimpleDelegate::CreateUObject(this,&USeagullPauseMenu::OnResumeClicked));
 }
 
 void USeagullPauseMenu::NativeConstruct()

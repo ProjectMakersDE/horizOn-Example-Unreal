@@ -1,6 +1,6 @@
 #pragma once
 #include "CoreMinimal.h"
-#include "Blueprint/UserWidget.h"
+#include "UI/SeagullMenu.h"
 #include "Models/HorizonPlayerValues.h"
 #include "SeagullPlayerValuesPanel.generated.h"
 class UTextBlock;
@@ -9,7 +9,7 @@ class UHorizonSubsystem;
 class USeagullValueIntent;
 /** Explicit server balances and catalog purchases, separate from local practice coins. */
 UCLASS()
-class USeagullPlayerValuesPanel : public UUserWidget
+class USeagullPlayerValuesPanel : public USeagullMenu
 {
     GENERATED_BODY()
 public:

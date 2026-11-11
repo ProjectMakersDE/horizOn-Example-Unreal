@@ -1,4 +1,6 @@
 #include "UI/SeagullSDKPanel.h"
+#include "GameFramework/PlayerController.h"
+#include "UI/SeagullFeatureLab.h"
 #include "UI/SeagullWidgetStyles.h"
 #include "Core/SeagullGameInstance.h"
 #include "Core/SeagullTypes.h"
@@ -80,6 +82,8 @@ void USeagullSDKPanel::NativeOnInitialized()
         FeatureRow->AddChildToWrapBox(Button);
     }
     SeagullWidgetStyles::AddRow(Column, FeatureRow);
+    FeatureLabButton = SeagullWidgetStyles::MakeTextButton(WidgetTree, TEXT("Current feature lab / nine integrated features"), SeagullColors::Orange, SeagullColors::DarkText, 18);
+    FeatureLabButton->OnClicked.AddDynamic(this, &USeagullSDKPanel::OnFeatureLab); SeagullWidgetStyles::AddRow(Column, FeatureLabButton);
     UButton* Profile = SeagullWidgetStyles::MakeTextButton(WidgetTree, TEXT("Read player profile"), SeagullColors::Teal, SeagullColors::LightText, 16);
     Profile->OnClicked.AddDynamic(this, &USeagullSDKPanel::OnProfile);
     SeagullWidgetStyles::AddRow(Column, Profile);
@@ -102,6 +106,8 @@ void USeagullSDKPanel::NativeOnInitialized()
     UButton* Close = SeagullWidgetStyles::MakeTextButton(WidgetTree, TEXT("Back to the flock"), SeagullColors::Orange, SeagullColors::DarkText, 20);
     Close->OnClicked.AddDynamic(this, &USeagullSDKPanel::OnClose);
     SeagullWidgetStyles::AddRow(Column, Close);
+    SetMenuFirstFocus(BoardInput);
+    SetMenuBack(FSimpleDelegate::CreateUObject(this,&USeagullSDKPanel::OnClose));
 }
 
 void USeagullSDKPanel::NativeTick(const FGeometry& Geometry, float DeltaTime)
@@ -233,7 +239,11 @@ void USeagullSDKPanel::OnCloudSave()
     });
 }
 
-void USeagullSDKPanel::OnClose() { RemoveFromParent(); }
+void USeagullSDKPanel::OnClose()
+{
+    RemoveFromParent();
+    if (auto* PC = GetOwningPlayer()) { PC->bShowMouseCursor = true; PC->SetInputMode(FInputModeUIOnly()); }
+}
 
 void USeagullSDKPanel::OnProfile()
 {
@@ -273,4 +283,25 @@ void USeagullSDKPanel::OnSendEmail()
         USeagullSDKPanel* Panel = Weak.Get(); if (!Panel || !Panel->IsInViewport()) return;
         Panel->ShowResult(Status, Ok);
     });
+}
+
+void USeagullSDKPanel::OnFeatureLab()
+{
+    if (auto* PC = GetOwningPlayer())
+    {
+        if (auto* Lab = CreateWidget<USeagullFeatureLab>(PC))
+        {
+            Lab->OnClosed.BindWeakLambda(this, [this]()
+            {
+                if (!IsInViewport() || !FeatureLabButton) return;
+                if (auto* Owner = GetOwningPlayer())
+                {
+                    Owner->bShowMouseCursor = true;
+                    FInputModeUIOnly Mode; Mode.SetWidgetToFocus(FeatureLabButton->TakeWidget()); Owner->SetInputMode(Mode);
+                }
+            });
+            Lab->AddToViewport(150);
+            Lab->FocusControls();
+        }
+    }
 }

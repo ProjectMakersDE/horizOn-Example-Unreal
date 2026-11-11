@@ -33,6 +33,11 @@ for name in sorted(required_headers):
     check((plugin / "Source/HorizonSDK/Public" / name).is_file(), "Game requires an absent official SDK public header: " + name)
 print(f"Required game SDK public headers: {len(required_headers)} (native compilation remains a separate check)")
 project = json.loads((ROOT / "SeagullStorm.uproject").read_text())
+guides=ROOT/'Source/SeagullStorm/PublicFeatureGuides'
+guide_proof=json.loads((guides/'SOURCE.json').read_text())
+check(guide_proof['sdk']==lock['commit'],'Public guide SDK pin')
+for name,proof in guide_proof['files'].items():
+    check(hashlib.sha256((guides/name).read_bytes()).hexdigest()==proof['sha256'],'Unchanged public guide: '+name)
 check(project["EngineAssociation"] == "5.8", "Engine association")
 manifest = json.loads((ROOT / "Content" / "Textures" / "asset-manifest.json").read_text())
 for record in manifest:

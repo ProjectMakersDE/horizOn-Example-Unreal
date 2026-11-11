@@ -98,6 +98,8 @@ void USeagullGameOverScreen::NativeOnInitialized()
 		HubSlot->SetPadding(FMargin(8.f, 0.f, 0.f, 0.f));
 	}
 	SeagullWidgetStyles::AddRow(Column, ButtonRow, 16.f);
+    SetMenuFirstFocus(HubButton);
+    SetMenuBack(FSimpleDelegate::CreateUObject(this,&USeagullGameOverScreen::OnHubClicked));
 }
 
 void USeagullGameOverScreen::NativeConstruct()

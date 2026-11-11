@@ -83,6 +83,7 @@ struct FHorizonCloudSaveSnapshot { bool bSuccess = false; bool bFound = false; F
 using FOnCloudSaveSnapshotComplete = Delegate<const FHorizonCloudSaveSnapshot&>;
 struct FHorizonLeaderboardEntry {}; struct FHorizonLeaderboardBoard {}; struct FHorizonPlayerState {};
 struct FHorizonPlayerProfileResult {}; struct FHorizonNewsEntry {};
+struct FHorizonGiftCodeIntent; struct FHorizonGiftCodeRedeemResult;
 struct FHorizonValidatedRun { FString RunId; int32 Seed = 0; };
 struct FHorizonEarnedValue { FHorizonEarnedValue(const FString&,int64) {} };
 struct FHorizonValidatedSubmitResult {

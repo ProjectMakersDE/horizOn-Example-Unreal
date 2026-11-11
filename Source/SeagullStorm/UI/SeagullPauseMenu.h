@@ -1,13 +1,13 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Blueprint/UserWidget.h"
+#include "UI/SeagullMenu.h"
 #include "SeagullPauseMenu.generated.h"
 
 class UButton;
 
 UCLASS()
-class USeagullPauseMenu : public UUserWidget
+class USeagullPauseMenu : public USeagullMenu
 {
 	GENERATED_BODY()
 

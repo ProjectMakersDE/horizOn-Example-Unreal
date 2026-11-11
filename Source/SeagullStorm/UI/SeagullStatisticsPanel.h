@@ -1,11 +1,11 @@
 #pragma once
 #include "CoreMinimal.h"
-#include "Blueprint/UserWidget.h"
+#include "UI/SeagullMenu.h"
 #include "SeagullStatisticsPanel.generated.h"
 class UTextBlock;
 /** Explicit HTTP actions; tick only renders the local current SDK snapshot. */
 UCLASS()
-class USeagullStatisticsPanel : public UUserWidget
+class USeagullStatisticsPanel : public USeagullMenu
 {
     GENERATED_BODY()
 public:
