@@ -13,7 +13,7 @@
     "HorizonSDK.uplugin": "dde3021bb018fe8abd103566976b7d52f50f20150a67c5f49b5c1c9ea9b9b5ba",
     "LICENSE": "abed569ff58f3d145cc761b01686a829e273712775ba34f4651c3cfe2b777fe6",
     "README.md": "3b2afe86fd36d7746fbe3f5b4783d9763f2b737303add884b337c3478ac16268",
-    "Resources/Icon128.png": "09fef4dff9224d51c1794aebaf8bc0dacfac5ff863ae680907ea52d652536fd2",
+    "Resources/Icon128.png": "a094d3e05e8aaf5ca0aea7e748f6b9b3171d0f6e5309c705cd31abc689f89d69",
     "Source/HorizonSDK/HorizonSDK.Build.cs": "1a8f3919a22ba2df61c28001a42dd0494b9be55f86cf66d89eff0d47ac188acf",
     "Source/HorizonSDK/Private/AsyncActions/HorizonAsync_Auth.cpp": "e55e9897eafe8508e9e0a532cda3b7d86963f247bb264f18509f77e13aa12ad9",
     "Source/HorizonSDK/Private/AsyncActions/HorizonAsync_CloudSave.cpp": "186e077af4d1a0ee7886be3589f0d6ca1e33ec6b3fa9f8675500ea7fe570f4f9",
